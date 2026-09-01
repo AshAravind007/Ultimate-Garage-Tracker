@@ -3,161 +3,184 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>MotoLog | Personal Garage & Fuel Tracker</title>
+  <title>Ultimate Garage Tracker</title>
   <link rel="stylesheet" href="style.css" />
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  
   <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
 </head>
 <body>
 
-  <header class="navbar">
-    <div class="brand">
-      <span class="logo-icon">🏍️</span>
-      <h1>MotoLog</h1>
-    </div>
-    <div class="vehicle-controls">
-      <select id="vehicleSelector" onchange="switchVehicle(this.value)"></select>
-      <button class="btn btn-primary" onclick="openModal('vehicleModal')">+ Add Bike</button>
-    </div>
-  </header>
-
-  <main class="container">
-    
-    <section class="stats-grid">
-      <div class="stat-card">
-        <span class="stat-label">Current Odometer</span>
-        <span class="stat-value" id="statOdo">-- km</span>
-      </div>
-      <div class="stat-card">
-        <span class="stat-label">Last Fuel Economy</span>
-        <span class="stat-value text-green" id="statFE">-- km/L</span>
-      </div>
-      <div class="stat-card">
-        <span class="stat-label">Avg Cost / KM</span>
-        <span class="stat-value text-blue" id="statCostPerKm">₹-- /km</span>
-      </div>
-      <div class="stat-card">
-        <span class="stat-label">Next Service Due</span>
-        <span class="stat-value" id="statServiceDue">--</span>
-      </div>
-    </section>
-
-    <div id="serviceAlertBanner" class="alert-banner hidden"></div>
-
-    <nav class="tab-nav">
-      <button class="tab-btn active" onclick="showTab('fuelTab', this)">⛽ Fuel Logs</button>
-      <button class="tab-btn" onclick="showTab('serviceTab', this)">🛠️ Service & Mechanics</button>
-      <button class="tab-btn" onclick="showTab('partsTab', this)">⚙️ Spare Parts Wear</button>
-      <button class="tab-btn" onclick="showTab('settingsTab', this)">💾 Backup & Config</button>
-    </nav>
-
-    <section id="fuelTab" class="tab-content active">
-      <div class="section-header">
-        <h2>Fueling Records</h2>
-        <button class="btn btn-primary" onclick="openModal('fuelModal')">+ Log Fuel Fill</button>
-      </div>
-      <div class="table-container">
-        <table>
-          <thead>
-            <tr>
-              <th>Date</th>
-              <th>Odometer</th>
-              <th>Trip Dist</th>
-              <th>Fuel (L)</th>
-              <th>Rate (₹/L)</th>
-              <th>Total Cost</th>
-              <th>Brand</th>
-              <th>FE (km/L)</th>
-              <th>Cost/km</th>
-              <th>km/₹</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody id="fuelTableBody"></tbody>
-        </table>
-      </div>
-    </section>
-
-    <section id="serviceTab" class="tab-content">
-      <div class="section-header">
-        <h2>Service History & Workshops</h2>
-        <button class="btn btn-primary" onclick="openModal('serviceModal')">+ Log Service</button>
-      </div>
-      <div class="table-container">
-        <table>
-          <thead>
-            <tr>
-              <th>Date</th>
-              <th>Odometer</th>
-              <th>Service Title & Details</th>
-              <th>Garage / Location</th>
-              <th>Mechanic</th>
-              <th>Bill / Invoice #</th>
-              <th>Labor Cost</th>
-              <th>Parts Cost</th>
-              <th>Total Bill</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody id="serviceTableBody"></tbody>
-        </table>
-      </div>
-    </section>
-
-    <section id="partsTab" class="tab-content">
-      <div class="section-header">
-        <h2>Component Health & Lifespan</h2>
-        <button class="btn btn-primary" onclick="openModal('partModal')">+ Add Part Tracked</button>
-      </div>
-      <div class="parts-grid" id="partsList"></div>
-    </section>
-
-    <section id="settingsTab" class="tab-content">
-      <div class="section-header">
-        <h2>Vehicle Settings & Data Backup</h2>
-      </div>
-      <div class="settings-card">
-        <h3>Service Interval Trigger Settings</h3>
-        <form id="serviceConfigForm" onsubmit="saveServiceConfig(event)">
-          <div class="form-row">
-            <div class="form-group">
-              <label>Service Interval (in Kilometers):</label>
-              <input type="number" id="cfgIntervalKm" placeholder="e.g. 2500" />
-            </div>
-            <div class="form-group">
-              <label>Service Interval (in Months):</label>
-              <input type="number" id="cfgIntervalMonths" placeholder="e.g. 3" />
-            </div>
-          </div>
-          <button type="submit" class="btn btn-success">Update Service Interval</button>
-        </form>
+  <div id="authScreen" class="auth-wrapper">
+    <div class="auth-card">
+      <div class="brand-center">
+        <span class="logo-icon" style="font-size: 2.5rem;">🏍️</span>
+        <h2>Ultimate Garage Tracker</h2>
+        <span class="version-badge">v1.2.0</span>
+        <p style="color: var(--text-muted); font-size: 0.9rem; margin-top: 6px;">
+          Multi-Vehicle Fuel & Service Manager
+        </p>
       </div>
 
-      <div class="settings-card">
-        <h3>Offline Data Management</h3>
-        <p>Export your full garage logs as a JSON backup or restore past data.</p>
-        <div class="btn-group">
-          <button class="btn btn-secondary" onclick="exportData()">📥 Export Backup (.json)</button>
-          <input type="file" id="importInput" style="display:none" onchange="importData(event)" />
-          <button class="btn btn-secondary" onclick="document.getElementById('importInput').click()">📤 Import Backup</button>
+      <div id="authError" class="alert-banner danger hidden" style="margin-top:16px;"></div>
+
+      <form id="authForm" onsubmit="handleAuth(event)">
+        <div class="form-group" style="margin-top: 16px;">
+          <label>Email Address</label>
+          <input type="email" id="authEmail" required placeholder="you@example.com" />
         </div>
+        <div class="form-group">
+          <label>Password</label>
+          <input type="password" id="authPassword" required placeholder="••••••••" minlength="6" />
+        </div>
+        <button type="submit" id="authSubmitBtn" class="btn btn-primary full-width">Sign In</button>
+      </form>
+
+      <div style="text-align:center; margin-top: 16px; font-size: 0.88rem;">
+        <span id="authToggleText">Don't have an account?</span>
+        <a href="#" id="authToggleLink" onclick="toggleAuthMode(event)" style="color: var(--primary); font-weight: 600;">Sign Up</a>
       </div>
-    </section>
-  </main>
+    </div>
+  </div>
+
+  <div id="appScreen" class="hidden">
+    <header class="navbar">
+      <div class="brand">
+        <span class="logo-icon">🏍️</span>
+        <h1>Ultimate Garage Tracker</h1>
+        <span class="version-badge">v1.2.0</span>
+      </div>
+      <div class="vehicle-controls">
+        <select id="vehicleSelector" onchange="switchVehicle(this.value)"></select>
+        <button class="btn btn-primary" onclick="openModal('vehicleModal')">+ Add Bike</button>
+        <button class="btn btn-secondary" onclick="logoutUser()">Logout</button>
+      </div>
+    </header>
+
+    <main class="container">
+      <section class="stats-grid">
+        <div class="stat-card">
+          <span class="stat-label">Current Odometer</span>
+          <span class="stat-value" id="statOdo">-- km</span>
+        </div>
+        <div class="stat-card">
+          <span class="stat-label">Last Fuel Economy</span>
+          <span class="stat-value text-green" id="statFE">-- km/L</span>
+        </div>
+        <div class="stat-card">
+          <span class="stat-label">Avg Cost / KM</span>
+          <span class="stat-value text-blue" id="statCostPerKm">₹-- /km</span>
+        </div>
+        <div class="stat-card">
+          <span class="stat-label">Next Service Due</span>
+          <span class="stat-value" id="statServiceDue">--</span>
+        </div>
+      </section>
+
+      <div id="serviceAlertBanner" class="alert-banner hidden"></div>
+
+      <nav class="tab-nav">
+        <button class="tab-btn active" onclick="showTab('fuelTab', this)">⛽ Fuel Logs</button>
+        <button class="tab-btn" onclick="showTab('serviceTab', this)">🛠️ Service & Mechanics</button>
+        <button class="tab-btn" onclick="showTab('partsTab', this)">⚙️ Spare Parts Wear</button>
+        <button class="tab-btn" onclick="showTab('settingsTab', this)">⚙️ Bike Config</button>
+      </nav>
+
+      <section id="fuelTab" class="tab-content active">
+        <div class="section-header">
+          <h2>Fueling Records</h2>
+          <button class="btn btn-primary" onclick="openModal('fuelModal')">+ Log Fuel Fill</button>
+        </div>
+        <div class="table-container">
+          <table>
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Odometer</th>
+                <th>Trip</th>
+                <th>Fuel (L)</th>
+                <th>Rate (₹/L)</th>
+                <th>Total Cost</th>
+                <th>Brand</th>
+                <th>FE (km/L)</th>
+                <th>Cost/km</th>
+                <th>km/₹</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="fuelTableBody"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section id="serviceTab" class="tab-content">
+        <div class="section-header">
+          <h2>Service History & Workshops</h2>
+          <button class="btn btn-primary" onclick="openModal('serviceModal')">+ Log Service</button>
+        </div>
+        <div class="table-container">
+          <table>
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Odometer</th>
+                <th>Service Title</th>
+                <th>Garage</th>
+                <th>Mechanic</th>
+                <th>Bill #</th>
+                <th>Labor</th>
+                <th>Parts</th>
+                <th>Total</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="serviceTableBody"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section id="partsTab" class="tab-content">
+        <div class="section-header">
+          <h2>Component Wear Tracker</h2>
+          <button class="btn btn-primary" onclick="openModal('partModal')">+ Track New Part</button>
+        </div>
+        <div class="parts-grid" id="partsList"></div>
+      </section>
+
+      <section id="settingsTab" class="tab-content">
+        <div class="settings-card">
+          <h3>Service Interval Settings</h3>
+          <form id="serviceConfigForm" onsubmit="saveServiceConfig(event)">
+            <div class="form-row">
+              <div class="form-group">
+                <label>Service Interval (KM):</label>
+                <input type="number" id="cfgIntervalKm" placeholder="e.g. 2500" />
+              </div>
+              <div class="form-group">
+                <label>Service Interval (Months):</label>
+                <input type="number" id="cfgIntervalMonths" placeholder="e.g. 3" />
+              </div>
+            </div>
+            <button type="submit" class="btn btn-success">Update Triggers</button>
+          </form>
+        </div>
+      </section>
+    </main>
+  </div>
 
   <div id="vehicleModal" class="modal">
     <div class="modal-dialog">
       <div class="modal-header">
-        <h3>Add New Vehicle</h3>
+        <h3>Add New Bike</h3>
         <span class="close-btn" onclick="closeModal('vehicleModal')">&times;</span>
       </div>
       <form onsubmit="addVehicle(event)">
         <div class="form-group">
-          <label>Vehicle Name / Model *</label>
-          <input type="text" id="vName" required placeholder="e.g. TVS NTorq 125 (2018)" />
+          <label>Bike Name / Model *</label>
+          <input type="text" id="vName" required placeholder="e.g. TVS NTorq 125" />
         </div>
         <div class="form-group">
           <label>Registration Number</label>
@@ -190,15 +213,15 @@
         <div class="form-row">
           <div class="form-group">
             <label>Fuel Quantity (Liters) *</label>
-            <input type="number" step="0.01" id="fLiters" required placeholder="e.g. 4.11" />
+            <input type="number" step="0.01" id="fLiters" required placeholder="4.11" />
           </div>
           <div class="form-group">
-            <label>Rate / Litre (₹) *</label>
-            <input type="number" step="0.01" id="fRate" required placeholder="e.g. 110.93" />
+            <label>Rate / Liter (₹) *</label>
+            <input type="number" step="0.01" id="fRate" required placeholder="110.93" />
           </div>
         </div>
         <div class="form-group">
-          <label>Fuel Brand / Type</label>
+          <label>Fuel Brand / Station</label>
           <input type="text" id="fBrand" placeholder="e.g. HP Normal, Shell V-Power" />
         </div>
         <button type="submit" class="btn btn-primary full-width">Save Fuel Entry</button>
@@ -209,7 +232,7 @@
   <div id="serviceModal" class="modal">
     <div class="modal-dialog">
       <div class="modal-header">
-        <h3>Log Service & Maintenance</h3>
+        <h3>Log Maintenance & Service</h3>
         <span class="close-btn" onclick="closeModal('serviceModal')">&times;</span>
       </div>
       <form onsubmit="addServiceLog(event)">
@@ -224,40 +247,40 @@
           </div>
         </div>
         <div class="form-group">
-          <label>Service Description *</label>
-          <input type="text" id="sTitle" required placeholder="e.g. Periodic Service, Engine Oil, CVT Clean" />
+          <label>Service Title *</label>
+          <input type="text" id="sTitle" required placeholder="Periodic Service, Oil Change" />
         </div>
         <div class="form-row">
           <div class="form-group">
-            <label>Garage / Workshop Name</label>
-            <input type="text" id="sGarage" placeholder="e.g. Speed Motors, KR Puram" />
+            <label>Workshop Name</label>
+            <input type="text" id="sGarage" placeholder="Speed Motors, KR Puram" />
           </div>
           <div class="form-group">
             <label>Mechanic Name</label>
-            <input type="text" id="sMechName" placeholder="e.g. Ramesh" />
+            <input type="text" id="sMechName" placeholder="Ramesh" />
           </div>
         </div>
         <div class="form-row">
           <div class="form-group">
-            <label>Mechanic Phone Number</label>
-            <input type="tel" id="sMechPhone" placeholder="e.g. 9876543210" />
+            <label>Mechanic Phone</label>
+            <input type="tel" id="sMechPhone" placeholder="9876543210" />
           </div>
           <div class="form-group">
             <label>Bill / Invoice Number</label>
-            <input type="text" id="sBill" placeholder="e.g. INV-9042" />
+            <input type="text" id="sBill" placeholder="INV-9042" />
           </div>
         </div>
         <div class="form-row">
           <div class="form-group">
-            <label>Labor Charge (₹)</label>
+            <label>Labor (₹)</label>
             <input type="number" step="0.01" id="sLabor" value="0" />
           </div>
           <div class="form-group">
-            <label>Parts Replaced Cost (₹)</label>
+            <label>Parts Cost (₹)</label>
             <input type="number" step="0.01" id="sPartsCost" value="0" />
           </div>
         </div>
-        <button type="submit" class="btn btn-primary full-width">Save Service Record</button>
+        <button type="submit" class="btn btn-primary full-width">Save Record</button>
       </form>
     </div>
   </div>
@@ -265,25 +288,25 @@
   <div id="partModal" class="modal">
     <div class="modal-dialog">
       <div class="modal-header">
-        <h3>Track Spare Part Lifespan</h3>
+        <h3>Track Spare Part</h3>
         <span class="close-btn" onclick="closeModal('partModal')">&times;</span>
       </div>
       <form onsubmit="addTrackedPart(event)">
         <div class="form-group">
           <label>Part Name *</label>
-          <input type="text" id="pName" required placeholder="e.g. Motul 10W-30 Oil, CVT Belt, Brake Pads" />
+          <input type="text" id="pName" required placeholder="Motul 10W-30 Oil, CVT Belt" />
         </div>
         <div class="form-row">
           <div class="form-group">
-            <label>Installed at Odometer (km) *</label>
+            <label>Installed at Odo (km) *</label>
             <input type="number" id="pInstalledOdo" required />
           </div>
           <div class="form-group">
-            <label>Recommended Life (km) *</label>
-            <input type="number" id="pLifeKm" required placeholder="e.g. 3000 for oil, 20000 for belt" />
+            <label>Lifespan (km) *</label>
+            <input type="number" id="pLifeKm" required placeholder="3000" />
           </div>
         </div>
-        <button type="submit" class="btn btn-primary full-width">Start Tracking Part</button>
+        <button type="submit" class="btn btn-primary full-width">Start Tracking</button>
       </form>
     </div>
   </div>
@@ -291,4 +314,3 @@
   <script src="app.js"></script>
 </body>
 </html>
-            
