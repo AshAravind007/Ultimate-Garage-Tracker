@@ -15,20 +15,20 @@
 </head>
 <body>
 
-  <div id="authScreen" class="auth-wrapper">
+ <div id="authScreen" class="auth-wrapper">
     <div class="auth-card">
       <div class="brand-center">
         <span class="logo-icon" style="font-size: 2.5rem;">🏍️</span>
         <h2>Ultimate Garage Tracker</h2>
         <span class="version-badge">v1.2.0</span>
         <p style="color: var(--text-muted); font-size: 0.9rem; margin-top: 6px;">
-          Multi-Vehicle Fuel & Service Manager
+          Multi-Vehicle Fuel & Maintenance Manager
         </p>
       </div>
 
       <div id="authError" class="alert-banner danger hidden" style="margin-top:16px;"></div>
 
-      <form id="authForm">
+      <form id="authForm" onsubmit="handleAuthSubmit(event)">
         <div class="form-group" style="margin-top: 16px;">
           <label>Email Address</label>
           <input type="email" id="authEmail" required placeholder="you@example.com" autocomplete="email" />
@@ -42,11 +42,11 @@
 
       <div style="text-align:center; margin-top: 16px; font-size: 0.88rem;">
         <span id="authToggleText">Don't have an account?</span>
-        <button type="button" id="authToggleBtn" class="link-btn">Sign Up</button>
+        <button type="button" id="authToggleBtn" class="link-btn" onclick="toggleAuthMode(event)">Sign Up</button>
       </div>
     </div>
   </div>
-
+  
   <div id="appScreen" class="hidden">
     <header class="navbar">
       <div class="brand">
