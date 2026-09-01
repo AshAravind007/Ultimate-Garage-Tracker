@@ -1,3 +1,25 @@
+// Import the functions you need from the SDKs you need
+import { initializeApp } from "firebase/app";
+import { getAnalytics } from "firebase/analytics";
+// TODO: Add SDKs for Firebase products that you want to use
+// https://firebase.google.com/docs/web/setup#available-libraries
+
+// Your web app's Firebase configuration
+// For Firebase JS SDK v7.20.0 and later, measurementId is optional
+const firebaseConfig = {
+  apiKey: "AIzaSyA1GIv5HTZ6RibTiNt0H4e3h8z5uyu4u88",
+  authDomain: "ultimate-garagetracker.firebaseapp.com",
+  projectId: "ultimate-garagetracker",
+  storageBucket: "ultimate-garagetracker.firebasestorage.app",
+  messagingSenderId: "1021924497902",
+  appId: "1:1021924497902:web:629922edf3ffbef0e516ff",
+  measurementId: "G-M9SQQB649N"
+};
+
+// Initialize Firebase
+const app = initializeApp(firebaseConfig);
+const analytics = getAnalytics(app);
+
 // DEFAULT DATA STRUCTURE
 const STORAGE_KEY = 'motolog_garage_data';
 
