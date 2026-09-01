@@ -95,45 +95,49 @@ function toggleAuthMode(e) {
 
 async function handleAuthSubmit(e) {
   e.preventDefault();
+  
   const email = document.getElementById('authEmail').value.trim();
   const pass = document.getElementById('authPassword').value;
   const errorEl = document.getElementById('authError');
   const submitBtn = document.getElementById('authSubmitBtn');
 
-  if (!email || !pass) return;
-
-  if (pass.length < 6) {
-    if (errorEl) {
-      errorEl.innerText = "Password must be at least 6 characters.";
-      errorEl.classList.remove('hidden');
-    }
+  if (!email || !pass) {
+    alert("Please enter both an email and password.");
     return;
   }
 
-  if (errorEl) errorEl.classList.add('hidden');
+  if (pass.length < 6) {
+    alert("Password must be at least 6 characters long.");
+    return;
+  }
+
+  if (!auth) {
+    alert("Firebase Auth failed to initialize. Check your API keys in app.js!");
+    return;
+  }
+
   submitBtn.disabled = true;
   submitBtn.innerText = isSignUpMode ? "Creating Account..." : "Signing In...";
 
   try {
     if (isSignUpMode) {
       await auth.createUserWithEmailAndPassword(email, pass);
+      alert("Account created successfully!");
     } else {
       await auth.signInWithEmailAndPassword(email, pass);
     }
   } catch (err) {
-    console.error("Auth Error:", err);
+    console.error("Firebase Error:", err);
+    alert("Auth Error: " + err.message);
     if (errorEl) {
       errorEl.innerText = err.message;
       errorEl.classList.remove('hidden');
-    } else {
-      alert(err.message);
     }
   } finally {
     submitBtn.disabled = false;
     submitBtn.innerText = isSignUpMode ? "Sign Up" : "Sign In";
   }
 }
-
 function logoutUser() {
   if (auth) auth.signOut();
 }
