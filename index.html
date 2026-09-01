@@ -5,9 +5,10 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Ultimate Garage Tracker</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   
-  <!-- Firebase SDKs -->
+  <!-- Firebase Compatibility SDKs -->
   <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
@@ -25,7 +26,7 @@
       --yellow: #f59e0b;
       --red: #ef4444;
     }
-    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Inter', sans-serif; }
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; }
     body { background-color: var(--bg-dark); color: var(--text-main); min-height: 100vh; padding-bottom: 50px; }
     .navbar { display: flex; justify-content: space-between; align-items: center; padding: 16px 24px; background-color: var(--card-bg); border-bottom: 1px solid var(--border); }
     .brand { display: flex; align-items: center; gap: 10px; }
@@ -84,7 +85,7 @@
 </head>
 <body>
 
-  <!-- AUTH SCREEN -->
+  <!-- AUTHENTICATION SCREEN -->
   <div id="authScreen" class="auth-wrapper">
     <div class="auth-card">
       <div class="brand-center">
@@ -161,6 +162,7 @@
         <button class="tab-btn" onclick="showTab('settingsTab', this)">⚙️ Bike Config</button>
       </nav>
 
+      <!-- TAB 1: FUEL -->
       <section id="fuelTab" class="tab-content active">
         <div class="section-header">
           <h2>Fueling Records</h2>
@@ -178,6 +180,7 @@
         </div>
       </section>
 
+      <!-- TAB 2: SERVICE -->
       <section id="serviceTab" class="tab-content">
         <div class="section-header">
           <h2>Service History & Workshops</h2>
@@ -195,6 +198,7 @@
         </div>
       </section>
 
+      <!-- TAB 3: SPARE PARTS -->
       <section id="partsTab" class="tab-content">
         <div class="section-header">
           <h2>Component Wear Tracker</h2>
@@ -203,18 +207,22 @@
         <div class="parts-grid" id="partsList"></div>
       </section>
 
+      <!-- TAB 4: SETTINGS -->
       <section id="settingsTab" class="tab-content">
         <div class="settings-card">
           <h3>Service Reminder Settings</h3>
+          <p style="color:var(--text-muted); font-size: 0.88rem; margin-bottom: 14px;">
+            Set your desired intervals. The system will alert you as soon as either KM or Date threshold hits first.
+          </p>
           <form id="serviceConfigForm" onsubmit="saveServiceConfig(event)">
             <div class="form-row">
               <div class="form-group">
                 <label>Interval (KM):</label>
-                <input type="number" id="cfgIntervalKm" placeholder="2500" />
+                <input type="number" id="cfgIntervalKm" placeholder="e.g. 2500" />
               </div>
               <div class="form-group">
                 <label>Interval (Months):</label>
-                <input type="number" id="cfgIntervalMonths" placeholder="3" />
+                <input type="number" id="cfgIntervalMonths" placeholder="e.g. 3" />
               </div>
             </div>
             <button type="submit" class="btn btn-success">Update Triggers</button>
@@ -224,7 +232,7 @@
     </main>
   </div>
 
-  <!-- MODALS -->
+  <!-- MODAL: ADD BIKE -->
   <div id="vehicleModal" class="modal">
     <div class="modal-dialog">
       <div class="modal-header"><h3>Add New Bike</h3><span class="close-btn" onclick="closeModal('vehicleModal')">&times;</span></div>
@@ -237,6 +245,7 @@
     </div>
   </div>
 
+  <!-- MODAL: FUEL -->
   <div id="fuelModal" class="modal">
     <div class="modal-dialog">
       <div class="modal-header"><h3>Log Fuel Refill</h3><span class="close-btn" onclick="closeModal('fuelModal')">&times;</span></div>
@@ -253,6 +262,7 @@
     </div>
   </div>
 
+  <!-- MODAL: SERVICE -->
   <div id="serviceModal" class="modal">
     <div class="modal-dialog">
       <div class="modal-header"><h3>Log Service</h3><span class="close-btn" onclick="closeModal('serviceModal')">&times;</span></div>
@@ -279,6 +289,7 @@
     </div>
   </div>
 
+  <!-- MODAL: PART -->
   <div id="partModal" class="modal">
     <div class="modal-dialog">
       <div class="modal-header"><h3>Track Part</h3><span class="close-btn" onclick="closeModal('partModal')">&times;</span></div>
@@ -295,37 +306,66 @@
 
   <!-- JAVASCRIPT ENGINE -->
   <script>
-    // 1. FIREBASE CONFIG
+    // 1. GLOBAL STATE (Hoisted globally)
+    var isSignUpMode = false;
+    var auth = null;
+    var db = null;
+    var currentUser = null;
+    var garage = { activeVehicleId: null, vehicles: [], fuelLogs: [], serviceLogs: [], parts: [] };
+
+    // 2. AUTH TOGGLE FUNCTION (Globally accessible to onclick)
+    function toggleAuthMode(e) {
+      if (e) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
+      isSignUpMode = !isSignUpMode;
+
+      var submitBtn = document.getElementById('authSubmitBtn');
+      var toggleText = document.getElementById('authToggleText');
+      var toggleBtn = document.getElementById('authToggleBtn');
+      var err = document.getElementById('authError');
+
+      if (submitBtn) submitBtn.innerText = isSignUpMode ? "Sign Up" : "Sign In";
+      if (toggleText) toggleText.innerText = isSignUpMode ? "Already have an account?" : "Don't have an account?";
+      if (toggleBtn) toggleBtn.innerText = isSignUpMode ? "Sign In" : "Sign Up";
+      if (err) err.classList.add('hidden');
+    }
+
+    // 3. FIREBASE CONFIGURATION (Insert your real keys here)
+    import { initializeApp } from "firebase/app";
+    import { getAnalytics } from "firebase/analytics";
+// TODO: Add SDKs for Firebase products that you want to use
+// https://firebase.google.com/docs/web/setup#available-libraries
+
+// Your web app's Firebase configuration
+// For Firebase JS SDK v7.20.0 and later, measurementId is optional
     const firebaseConfig = {
-  apiKey: "AIzaSyA1GIv5HTZ6RibTiNt0H4e3h8z5uyu4u88",
-  authDomain: "ultimate-garagetracker.firebaseapp.com",
-  projectId: "ultimate-garagetracker",
-  storageBucket: "ultimate-garagetracker.firebasestorage.app",
-  messagingSenderId: "1021924497902",
-  appId: "1:1021924497902:web:629922edf3ffbef0e516ff",
-  measurementId: "G-M9SQQB649N"
+      apiKey: "AIzaSyA1GIv5HTZ6RibTiNt0H4e3h8z5uyu4u88",
+      authDomain: "ultimate-garagetracker.firebaseapp.com",
+      projectId: "ultimate-garagetracker",
+      storageBucket: "ultimate-garagetracker.firebasestorage.app",
+      messagingSenderId: "1021924497902",
+      appId: "1:1021924497902:web:629922edf3ffbef0e516ff",
+      measurementId: "G-M9SQQB649N"
 };
 
-    // Initialize Firebase
+// Initialize Firebase
 const app = initializeApp(firebaseConfig);
 const analytics = getAnalytics(app);
 
-    let auth = null;
-    let db = null;
-    let currentUser = null;
-    let garage = { activeVehicleId: null, vehicles: [], fuelLogs: [], serviceLogs: [], parts: [] };
-    let isSignUpMode = false;
-
-    // Initialization
-    try {
+    // 4. FIREBASE INITIALIZER & AUTH LISTENER
+  try {
       if (typeof firebase !== 'undefined') {
-        if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
+        if (!firebase.apps.length) {
+          firebase.initializeApp(firebaseConfig);
+        }
         auth = firebase.auth();
         db = firebase.firestore();
 
-        auth.onAuthStateChanged(async (user) => {
-          const authScreen = document.getElementById('authScreen');
-          const appScreen = document.getElementById('appScreen');
+        auth.onAuthStateChanged(async function(user) {
+          var authScreen = document.getElementById('authScreen');
+          var appScreen = document.getElementById('appScreen');
           if (user) {
             currentUser = user;
             if (authScreen) authScreen.classList.add('hidden');
@@ -338,32 +378,23 @@ const analytics = getAnalytics(app);
           }
         });
       } else {
-        alert("Firebase scripts failed to load. Please check your internet connection.");
+        alert("Firebase scripts failed to load. Check your internet connection.");
       }
     } catch (e) {
-      alert("Config Error: " + e.message);
+      console.error("Init Error:", e);
     }
 
-    function toggleAuthMode(e) {
-      if (e) e.preventDefault();
-      isSignUpMode = !isSignUpMode;
-      document.getElementById('authSubmitBtn').innerText = isSignUpMode ? "Sign Up" : "Sign In";
-      document.getElementById('authToggleText').innerText = isSignUpMode ? "Already have an account?" : "Don't have an account?";
-      document.getElementById('authToggleBtn').innerText = isSignUpMode ? "Sign In" : "Sign Up";
-      const err = document.getElementById('authError');
-      if (err) err.classList.add('hidden');
-    }
-
+    // 5. AUTH SUBMIT HANDLER
     async function handleAuthSubmit(e) {
       if (e) e.preventDefault();
-      const email = document.getElementById('authEmail').value.trim();
-      const pass = document.getElementById('authPassword').value;
-      const errorEl = document.getElementById('authError');
-      const submitBtn = document.getElementById('authSubmitBtn');
+      var email = document.getElementById('authEmail').value.trim();
+      var pass = document.getElementById('authPassword').value;
+      var errorEl = document.getElementById('authError');
+      var submitBtn = document.getElementById('authSubmitBtn');
 
       if (!email || !pass) return;
       if (pass.length < 6) {
-        alert("Password must be at least 6 characters.");
+        alert("Password must be at least 6 characters long.");
         return;
       }
       if (!auth) {
@@ -392,12 +423,15 @@ const analytics = getAnalytics(app);
       }
     }
 
-    function logoutUser() { if (auth) auth.signOut(); }
+    function logoutUser() {
+      if (auth) auth.signOut();
+    }
 
+    // 6. FIRESTORE SYNC
     async function loadUserData() {
       if (!currentUser || !db) return;
       try {
-        const doc = await db.collection('users').doc(currentUser.uid).get();
+        var doc = await db.collection('users').doc(currentUser.uid).get();
         if (doc.exists) {
           garage = doc.data();
         } else {
@@ -406,7 +440,7 @@ const analytics = getAnalytics(app);
         }
         renderAll();
       } catch (err) {
-        alert("Database load error: " + err.message);
+        console.error("Firestore Load Error:", err);
       }
     }
 
@@ -416,36 +450,43 @@ const analytics = getAnalytics(app);
         await db.collection('users').doc(currentUser.uid).set(garage);
         renderAll();
       } catch (err) {
-        alert("Database save error: " + err.message);
+        console.error("Firestore Save Error:", err);
       }
     }
 
     function getActiveVehicle() {
       if (!garage.vehicles || garage.vehicles.length === 0) return null;
-      return garage.vehicles.find(v => v.id === garage.activeVehicleId) || garage.vehicles[0];
+      return garage.vehicles.find(function(v) { return v.id === garage.activeVehicleId; }) || garage.vehicles[0];
     }
 
+    // 7. UI CONTROLLERS
     function showTab(tabId, el) {
-      document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
-      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.tab-content').forEach(function(c) { c.classList.remove('active'); });
+      document.querySelectorAll('.tab-btn').forEach(function(b) { b.classList.remove('active'); });
       document.getElementById(tabId).classList.add('active');
       el.classList.add('active');
     }
 
     function openModal(id) {
       document.getElementById(id).classList.add('active');
-      const today = new Date().toISOString().split('T')[0];
+      var today = new Date().toISOString().split('T')[0];
       if (document.getElementById('fDate')) document.getElementById('fDate').value = today;
       if (document.getElementById('sDate')) document.getElementById('sDate').value = today;
     }
 
-    function closeModal(id) { document.getElementById(id).classList.remove('active'); }
+    function closeModal(id) {
+      document.getElementById(id).classList.remove('active');
+    }
 
-    function switchVehicle(id) { garage.activeVehicleId = id; saveUserData(); }
+    function switchVehicle(id) {
+      garage.activeVehicleId = id;
+      saveUserData();
+    }
 
+    // 8. LOGGING ACTIONS
     async function addVehicle(e) {
       e.preventDefault();
-      const newV = {
+      var newV = {
         id: 'v_' + Date.now(),
         name: document.getElementById('vName').value,
         regNumber: document.getElementById('vReg').value,
@@ -453,7 +494,8 @@ const analytics = getAnalytics(app);
         serviceIntervalMonths: 3,
         createdAt: new Date().toISOString()
       };
-      const initOdo = parseFloat(document.getElementById('vOdo').value);
+      var initOdo = parseFloat(document.getElementById('vOdo').value);
+
       if (!garage.vehicles) garage.vehicles = [];
       if (!garage.fuelLogs) garage.fuelLogs = [];
       if (!garage.serviceLogs) garage.serviceLogs = [];
@@ -461,15 +503,25 @@ const analytics = getAnalytics(app);
 
       garage.vehicles.push(newV);
       garage.activeVehicleId = newV.id;
-      garage.fuelLogs.push({ id: 'f_' + Date.now(), vehicleId: newV.id, date: new Date().toISOString().split('T')[0], odo: initOdo, liters: 0, rate: 0, brand: "Baseline Odometer" });
+      garage.fuelLogs.push({
+        id: 'f_' + Date.now(),
+        vehicleId: newV.id,
+        date: new Date().toISOString().split('T')[0],
+        odo: initOdo,
+        liters: 0,
+        rate: 0,
+        brand: "Baseline Odometer"
+      });
+
       closeModal('vehicleModal');
       await saveUserData();
     }
 
     async function addFuelLog(e) {
       e.preventDefault();
-      const v = getActiveVehicle();
+      var v = getActiveVehicle();
       if (!v) return;
+
       garage.fuelLogs.push({
         id: 'f_' + Date.now(),
         vehicleId: v.id,
@@ -485,8 +537,9 @@ const analytics = getAnalytics(app);
 
     async function addServiceLog(e) {
       e.preventDefault();
-      const v = getActiveVehicle();
+      var v = getActiveVehicle();
       if (!v) return;
+
       garage.serviceLogs.push({
         id: 's_' + Date.now(),
         vehicleId: v.id,
@@ -506,8 +559,9 @@ const analytics = getAnalytics(app);
 
     async function addTrackedPart(e) {
       e.preventDefault();
-      const v = getActiveVehicle();
+      var v = getActiveVehicle();
       if (!v) return;
+
       garage.parts.push({
         id: 'p_' + Date.now(),
         vehicleId: v.id,
@@ -521,7 +575,7 @@ const analytics = getAnalytics(app);
 
     async function saveServiceConfig(e) {
       e.preventDefault();
-      const v = getActiveVehicle();
+      var v = getActiveVehicle();
       if (!v) return;
       v.serviceIntervalKm = parseFloat(document.getElementById('cfgIntervalKm').value) || null;
       v.serviceIntervalMonths = parseFloat(document.getElementById('cfgIntervalMonths').value) || null;
@@ -529,13 +583,15 @@ const analytics = getAnalytics(app);
     }
 
     async function deleteItem(collection, id) {
-      garage[collection] = garage[collection].filter(i => i.id !== id);
+      garage[collection] = garage[collection].filter(function(i) { return i.id !== id; });
       await saveUserData();
     }
 
+    // 9. RENDER ENGINE & FUEL/SERVICE REMINDER FORMULAS
     function renderAll() {
-      const v = getActiveVehicle();
-      const sel = document.getElementById('vehicleSelector');
+      var v = getActiveVehicle();
+      var sel = document.getElementById('vehicleSelector');
+
       if (!v) {
         if (sel) sel.innerHTML = '<option>No Bikes Added</option>';
         document.getElementById('statOdo').innerText = '--';
@@ -548,68 +604,121 @@ const analytics = getAnalytics(app);
         return;
       }
 
-      if (sel) sel.innerHTML = garage.vehicles.map(item => `<option value="${item.id}" ${item.id === v.id ? 'selected' : ''}>${item.name}</option>`).join('');
+      if (sel) {
+        sel.innerHTML = garage.vehicles.map(function(item) {
+          return '<option value="' + item.id + '" ' + (item.id === v.id ? 'selected' : '') + '>' + item.name + '</option>';
+        }).join('');
+      }
+
       if (document.getElementById('cfgIntervalKm')) {
         document.getElementById('cfgIntervalKm').value = v.serviceIntervalKm || '';
         document.getElementById('cfgIntervalMonths').value = v.serviceIntervalMonths || '';
       }
 
-      const fuels = (garage.fuelLogs || []).filter(f => f.vehicleId === v.id).sort((a,b) => a.odo - b.odo);
-      const services = (garage.serviceLogs || []).filter(s => s.vehicleId === v.id).sort((a,b) => a.odo - b.odo);
-      const parts = (garage.parts || []).filter(p => p.vehicleId === v.id);
+      var fuels = (garage.fuelLogs || []).filter(function(f) { return f.vehicleId === v.id; }).sort(function(a, b) { return a.odo - b.odo; });
+      var services = (garage.serviceLogs || []).filter(function(s) { return s.vehicleId === v.id; }).sort(function(a, b) { return a.odo - b.odo; });
+      var parts = (garage.parts || []).filter(function(p) { return p.vehicleId === v.id; });
 
-      const latestFuelOdo = fuels.length ? fuels[fuels.length - 1].odo : 0;
-      const latestServiceOdo = services.length ? services[services.length - 1].odo : 0;
-      const currentOdo = Math.max(latestFuelOdo, latestServiceOdo);
-      document.getElementById('statOdo').innerText = currentOdo ? `${currentOdo.toLocaleString()} km` : '--';
+      var latestFuelOdo = fuels.length ? fuels[fuels.length - 1].odo : 0;
+      var latestServiceOdo = services.length ? services[services.length - 1].odo : 0;
+      var currentOdo = Math.max(latestFuelOdo, latestServiceOdo);
+      document.getElementById('statOdo').innerText = currentOdo ? currentOdo.toLocaleString() + ' km' : '--';
 
-      let lastFE = '--', totalSpent = 0, totalDistance = 0;
-      const fuelTbody = document.getElementById('fuelTableBody');
+      // 1. Calculate Fuel Economy
+      var lastFE = '--';
+      var totalSpent = 0;
+      var totalDistance = 0;
+      var fuelTbody = document.getElementById('fuelTableBody');
       fuelTbody.innerHTML = '';
-      fuels.forEach((entry, idx) => {
-        let tripDist = idx > 0 ? entry.odo - fuels[idx - 1].odo : 0;
-        let cost = entry.liters * entry.rate;
-        let fe = (tripDist > 0 && entry.liters > 0) ? (tripDist / entry.liters).toFixed(2) : '--';
-        let costPerKm = (tripDist > 0 && cost > 0) ? `₹${(cost / tripDist).toFixed(2)}` : '--';
-        let kmPerRe = (tripDist > 0 && cost > 0) ? `${(tripDist / cost).toFixed(3)} km` : '--';
-        if (fe !== '--') { lastFE = fe; totalSpent += cost; totalDistance += tripDist; }
-        fuelTbody.innerHTML += `<tr><td>${entry.date}</td><td><strong>${entry.odo}</strong></td><td>${tripDist > 0 ? tripDist + ' km' : '-'}</td><td>${entry.liters}</td><td>₹${entry.rate}</td><td>₹${cost.toFixed(2)}</td><td>${entry.brand}</td><td><strong class="text-green">${fe}</strong></td><td>${costPerKm}</td><td>${kmPerRe}</td><td><button class="btn btn-danger" onclick="deleteItem('fuelLogs', '${entry.id}')">✕</button></td></tr>`;
+
+      fuels.forEach(function(entry, idx) {
+        var tripDist = idx > 0 ? entry.odo - fuels[idx - 1].odo : 0;
+        var cost = entry.liters * entry.rate;
+        var fe = (tripDist > 0 && entry.liters > 0) ? (tripDist / entry.liters).toFixed(2) : '--';
+        var costPerKm = (tripDist > 0 && cost > 0) ? '₹' + (cost / tripDist).toFixed(2) : '--';
+        var kmPerRe = (tripDist > 0 && cost > 0) ? (tripDist / cost).toFixed(3) + ' km' : '--';
+
+        if (fe !== '--') {
+          lastFE = fe;
+          totalSpent += cost;
+          totalDistance += tripDist;
+        }
+
+        fuelTbody.innerHTML += '<tr>' +
+          '<td>' + entry.date + '</td>' +
+          '<td><strong>' + entry.odo + '</strong></td>' +
+          '<td>' + (tripDist > 0 ? tripDist + ' km' : '-') + '</td>' +
+          '<td>' + entry.liters + '</td>' +
+          '<td>₹' + entry.rate + '</td>' +
+          '<td>₹' + cost.toFixed(2) + '</td>' +
+          '<td>' + entry.brand + '</td>' +
+          '<td><strong class="text-green">' + fe + '</strong></td>' +
+          '<td>' + costPerKm + '</td>' +
+          '<td>' + kmPerRe + '</td>' +
+          '<td><button class="btn btn-danger" onclick="deleteItem(\'fuelLogs\', \'' + entry.id + '\')">✕</button></td>' +
+        '</tr>';
       });
 
-      document.getElementById('statFE').innerText = lastFE !== '--' ? `${lastFE} km/L` : '--';
-      document.getElementById('statCostPerKm').innerText = (totalDistance > 0 && totalSpent > 0) ? `₹${(totalSpent / totalDistance).toFixed(2)} /km` : '₹-- /km';
+      document.getElementById('statFE').innerText = lastFE !== '--' ? lastFE + ' km/L' : '--';
+      document.getElementById('statCostPerKm').innerText = (totalDistance > 0 && totalSpent > 0)
+        ? '₹' + (totalSpent / totalDistance).toFixed(2) + ' /km'
+        : '₹-- /km';
 
-      const sTbody = document.getElementById('serviceTableBody');
+      // 2. Render Service Logs
+      var sTbody = document.getElementById('serviceTableBody');
       sTbody.innerHTML = '';
-      services.forEach(s => {
-        const total = (s.laborCost || 0) + (s.partsCost || 0);
-        sTbody.innerHTML += `<tr><td>${s.date}</td><td><strong>${s.odo} km</strong></td><td><strong>${s.title}</strong></td><td>${s.garage || '-'}</td><td>${s.mechName || '-'}</td><td>${s.mechPhone ? `<a class="phone-link" href="tel:${s.mechPhone}">📞 ${s.mechPhone}</a>` : '-'}</td><td>${s.billNumber || '-'}</td><td>₹${(s.laborCost || 0).toFixed(2)}</td><td>₹${(s.partsCost || 0).toFixed(2)}</td><td><strong>₹${total.toFixed(2)}</strong></td><td><button class="btn btn-danger" onclick="deleteItem('serviceLogs', '${s.id}')">✕</button></td></tr>`;
+      services.forEach(function(s) {
+        var total = (s.laborCost || 0) + (s.partsCost || 0);
+        sTbody.innerHTML += '<tr>' +
+          '<td>' + s.date + '</td>' +
+          '<td><strong>' + s.odo + ' km</strong></td>' +
+          '<td><strong>' + s.title + '</strong></td>' +
+          '<td>' + (s.garage || '-') + '</td>' +
+          '<td>' + (s.mechName || '-') + '</td>' +
+          '<td>' + (s.mechPhone ? '<a class="phone-link" href="tel:' + s.mechPhone + '">📞 ' + s.mechPhone + '</a>' : '-') + '</td>' +
+          '<td>' + (s.billNumber || '-') + '</td>' +
+          '<td>₹' + (s.laborCost || 0).toFixed(2) + '</td>' +
+          '<td>₹' + (s.partsCost || 0).toFixed(2) + '</td>' +
+          '<td><strong>₹' + total.toFixed(2) + '</strong></td>' +
+          '<td><button class="btn btn-danger" onclick="deleteItem(\'serviceLogs\', \'' + s.id + '\')">✕</button></td>' +
+        '</tr>';
       });
 
-      const pList = document.getElementById('partsList');
+      // 3. Render Parts Wear
+      var pList = document.getElementById('partsList');
       pList.innerHTML = '';
-      parts.forEach(p => {
-        const used = Math.max(0, currentOdo - p.installedOdo);
-        const pct = Math.min(100, Math.round((used / p.lifeKm) * 100));
-        let color = 'var(--green)';
+      parts.forEach(function(p) {
+        var used = Math.max(0, currentOdo - p.installedOdo);
+        var pct = Math.min(100, Math.round((used / p.lifeKm) * 100));
+        var color = 'var(--green)';
         if (pct > 70) color = 'var(--yellow)';
         if (pct >= 95) color = 'var(--red)';
-        pList.innerHTML += `<div class="part-card"><h4>${p.name}</h4><p style="color:var(--text-muted); font-size:0.85rem; margin-top:4px;">Installed at: ${p.installedOdo} km | Lifespan: ${p.lifeKm} km</p><div class="progress-bar-bg"><div class="progress-bar-fill" style="width:${pct}%; background-color:${color};"></div></div><div style="display:flex; justify-content:space-between; font-size:0.85rem;"><span>Used: ${used} km (${pct}%)</span><span>Remaining: ${Math.max(0, p.lifeKm - used)} km</span></div></div>`;
+
+        pList.innerHTML += '<div class="part-card">' +
+          '<h4>' + p.name + '</h4>' +
+          '<p style="color:var(--text-muted); font-size:0.85rem; margin-top:4px;">Installed at: ' + p.installedOdo + ' km | Lifespan: ' + p.lifeKm + ' km</p>' +
+          '<div class="progress-bar-bg"><div class="progress-bar-fill" style="width:' + pct + '%; background-color:' + color + ';"></div></div>' +
+          '<div style="display:flex; justify-content:space-between; font-size:0.85rem;">' +
+            '<span>Used: ' + used + ' km (' + pct + '%)</span>' +
+            '<span>Remaining: ' + Math.max(0, p.lifeKm - used) + ' km</span>' +
+          '</div>' +
+        '</div>';
       });
 
+      // 4. Evaluate Reminders
       evaluateServiceReminder(v, currentOdo, services);
     }
 
     function evaluateServiceReminder(v, currentOdo, services) {
-      const alertEl = document.getElementById('serviceAlertBanner');
-      const statServiceDue = document.getElementById('statServiceDue');
-      let lastServiceOdo = services.length ? services[services.length - 1].odo : (currentOdo || 0);
-      let lastServiceDate = services.length ? new Date(services[services.length - 1].date) : new Date(v.createdAt);
-      let kmRemaining = v.serviceIntervalKm ? (lastServiceOdo + v.serviceIntervalKm) - currentOdo : null;
-      let daysRemaining = null;
+      var alertEl = document.getElementById('serviceAlertBanner');
+      var statServiceDue = document.getElementById('statServiceDue');
+      var lastServiceOdo = services.length ? services[services.length - 1].odo : (currentOdo || 0);
+      var lastServiceDate = services.length ? new Date(services[services.length - 1].date) : new Date(v.createdAt);
+      var kmRemaining = v.serviceIntervalKm ? (lastServiceOdo + v.serviceIntervalKm) - currentOdo : null;
+      var daysRemaining = null;
 
       if (v.serviceIntervalMonths) {
-        let tDate = new Date(lastServiceDate);
+        var tDate = new Date(lastServiceDate);
         tDate.setMonth(tDate.getMonth() + v.serviceIntervalMonths);
         daysRemaining = Math.ceil((tDate - new Date()) / (1000 * 60 * 60 * 24));
       }
@@ -620,17 +729,17 @@ const analytics = getAnalytics(app);
         return;
       }
 
-      let txt = [];
-      if (kmRemaining !== null) txt.push(`${kmRemaining} km left`);
-      if (daysRemaining !== null) txt.push(`${daysRemaining} days left`);
+      var txt = [];
+      if (kmRemaining !== null) txt.push(kmRemaining + ' km left');
+      if (daysRemaining !== null) txt.push(daysRemaining + ' days left');
       statServiceDue.innerText = txt.join(' or ');
 
       if ((kmRemaining !== null && kmRemaining <= 0) || (daysRemaining !== null && daysRemaining <= 0)) {
         alertEl.className = 'alert-banner danger';
-        alertEl.innerText = `🚨 Service Overdue! Passed threshold (${kmRemaining <= 0 ? 'KM exceeded' : 'Time exceeded'}).`;
+        alertEl.innerText = '🚨 Service Overdue! Passed threshold (' + (kmRemaining <= 0 ? 'KM exceeded' : 'Time exceeded') + ').';
       } else if ((kmRemaining !== null && kmRemaining <= 200) || (daysRemaining !== null && daysRemaining <= 15)) {
         alertEl.className = 'alert-banner warning';
-        alertEl.innerText = `⚠️ Service Due Soon: ${txt.join(' | ')}`;
+        alertEl.innerText = '⚠️ Service Due Soon: ' + txt.join(' | ');
       } else {
         alertEl.classList.add('hidden');
       }
