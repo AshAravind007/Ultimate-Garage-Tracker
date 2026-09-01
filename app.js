@@ -16,19 +16,8 @@ const firebaseConfig = {
   measurementId: "G-M9SQQB649N"
 };
 
-// ==========================================
-// 1. YOUR FIREBASE CONFIG
-// ==========================================
-const firebaseConfig = {
-  apiKey: "YOUR_ACTUAL_API_KEY",
-  authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
-  projectId: "YOUR_PROJECT_ID",
-  storageBucket: "YOUR_PROJECT_ID.appspot.com",
-  messagingSenderId: "YOUR_SENDER_ID",
-  appId: "YOUR_APP_ID"
-};
 
-// Global State
+// Global App State
 let auth, db;
 let currentUser = null;
 let garage = {
@@ -40,10 +29,10 @@ let garage = {
 };
 let isSignUpMode = false;
 
-// 1. Safe Initialization
+// Safe Firebase Initializer
 try {
   if (typeof firebase === 'undefined') {
-    console.error("Firebase SDK script tag is missing in index.html");
+    console.error("Firebase SDK failed to load.");
   } else {
     if (!firebase.apps.length) {
       firebase.initializeApp(firebaseConfig);
@@ -55,7 +44,9 @@ try {
   console.error("Firebase Init Error:", err);
 }
 
-// 2. Auth State Listener
+// ------------------------------------------
+// 2. AUTH STATE & EVENT LISTENERS
+// ------------------------------------------
 if (auth) {
   auth.onAuthStateChanged(async (user) => {
     const authScreen = document.getElementById('authScreen');
@@ -74,7 +65,6 @@ if (auth) {
   });
 }
 
-// 3. Attach DOM Listeners on Page Ready
 document.addEventListener('DOMContentLoaded', () => {
   const authForm = document.getElementById('authForm');
   const authToggleBtn = document.getElementById('authToggleBtn');
@@ -114,7 +104,7 @@ async function handleAuthSubmit(e) {
 
   if (pass.length < 6) {
     if (errorEl) {
-      errorEl.innerText = "Password must be at least 6 characters long.";
+      errorEl.innerText = "Password must be at least 6 characters.";
       errorEl.classList.remove('hidden');
     }
     return;
@@ -149,7 +139,7 @@ function logoutUser() {
 }
 
 // ------------------------------------------
-// DATABASE LOAD & SAVE
+// 3. FIRESTORE DATABASE CONTROLLER
 // ------------------------------------------
 async function loadUserData() {
   if (!currentUser || !db) return;
@@ -160,6 +150,7 @@ async function loadUserData() {
     if (doc.exists) {
       garage = doc.data();
     } else {
+      // Empty template for brand new user
       garage = {
         activeVehicleId: null,
         vehicles: [],
@@ -191,7 +182,7 @@ function getActiveVehicle() {
 }
 
 // ------------------------------------------
-// UI ACTIONS & CONTROLLERS
+// 4. UI TAB NAVIGATION & MODALS
 // ------------------------------------------
 function showTab(tabId, element) {
   document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
@@ -218,6 +209,9 @@ function switchVehicle(id) {
   saveUserData();
 }
 
+// ------------------------------------------
+// 5. DATA LOGGING ENGINE
+// ------------------------------------------
 async function addVehicle(e) {
   e.preventDefault();
   const newV = {
@@ -245,7 +239,7 @@ async function addVehicle(e) {
     odo: initOdo,
     liters: 0,
     rate: 0,
-    brand: "Initial Odo Baseline"
+    brand: "Initial Odometer Baseline"
   });
 
   closeModal('vehicleModal');
@@ -256,6 +250,7 @@ async function addFuelLog(e) {
   e.preventDefault();
   const v = getActiveVehicle();
   if (!v) return;
+
   garage.fuelLogs.push({
     id: 'f_' + Date.now(),
     vehicleId: v.id,
@@ -273,6 +268,7 @@ async function addServiceLog(e) {
   e.preventDefault();
   const v = getActiveVehicle();
   if (!v) return;
+
   garage.serviceLogs.push({
     id: 's_' + Date.now(),
     vehicleId: v.id,
@@ -294,6 +290,7 @@ async function addTrackedPart(e) {
   e.preventDefault();
   const v = getActiveVehicle();
   if (!v) return;
+
   garage.parts.push({
     id: 'p_' + Date.now(),
     vehicleId: v.id,
@@ -320,7 +317,7 @@ async function deleteItem(collection, id) {
 }
 
 // ------------------------------------------
-// RENDER & FORMULAS ENGINE
+// 6. FORMULAS & DOM RENDER ENGINE
 // ------------------------------------------
 function renderAll() {
   const v = getActiveVehicle();
@@ -359,7 +356,7 @@ function renderAll() {
 
   document.getElementById('statOdo').innerText = currentOdo ? `${currentOdo.toLocaleString()} km` : '--';
 
-  // 1. Fuel Table
+  // 1. Calculate Fuel Economics
   let lastFE = '--';
   let totalSpent = 0;
   let totalDistance = 0;
@@ -401,7 +398,7 @@ function renderAll() {
     ? `₹${(totalSpent / totalDistance).toFixed(2)} /km` 
     : '₹-- /km';
 
-  // 2. Service Table
+  // 2. Render Service Logs
   const serviceTbody = document.getElementById('serviceTableBody');
   serviceTbody.innerHTML = '';
   services.forEach(s => {
@@ -423,15 +420,15 @@ function renderAll() {
     `;
   });
 
-  // 3. Spare Parts Wear
+  // 3. Render Spare Parts Wear Bars
   const partsContainer = document.getElementById('partsList');
   partsContainer.innerHTML = '';
   parts.forEach(p => {
     const usedKm = Math.max(0, currentOdo - p.installedOdo);
     const percentage = Math.min(100, Math.round((usedKm / p.lifeKm) * 100));
     let color = 'var(--green)';
-    if(percentage > 70) color = 'var(--yellow)';
-    if(percentage >= 95) color = 'var(--red)';
+    if (percentage > 70) color = 'var(--yellow)';
+    if (percentage >= 95) color = 'var(--red)';
 
     partsContainer.innerHTML += `
       <div class="part-card">
@@ -450,7 +447,7 @@ function renderAll() {
     `;
   });
 
-  // 4. Reminders
+  // 4. Smart Service Interval Reminder Engine
   evaluateServiceReminder(v, currentOdo, services);
 }
 
