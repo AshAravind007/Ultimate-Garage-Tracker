@@ -45,6 +45,17 @@ body {
   font-weight: 700;
 }
 
+.version-badge {
+  background: rgba(59, 130, 246, 0.15);
+  color: var(--primary);
+  border: 1px solid var(--primary);
+  font-size: 0.72rem;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-weight: 600;
+  vertical-align: middle;
+}
+
 .vehicle-controls {
   display: flex;
   gap: 10px;
