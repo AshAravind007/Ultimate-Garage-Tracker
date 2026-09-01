@@ -7,8 +7,8 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-  
-  <!-- Firebase Compatibility SDKs -->
+
+  <!-- Firebase Global Compat SDKs (No ES Module import errors) -->
   <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
@@ -85,7 +85,7 @@
 </head>
 <body>
 
-  <!-- AUTHENTICATION SCREEN -->
+  <!-- AUTH SCREEN -->
   <div id="authScreen" class="auth-wrapper">
     <div class="auth-card">
       <div class="brand-center">
@@ -304,70 +304,64 @@
     </div>
   </div>
 
-  <!-- JAVASCRIPT ENGINE -->
+  <!-- JAVASCRIPT CONTROLLER -->
   <script>
-    // 1. GLOBAL STATE (Hoisted globally)
-    var isSignUpMode = false;
-    var auth = null;
-    var db = null;
-    var currentUser = null;
-    var garage = { activeVehicleId: null, vehicles: [], fuelLogs: [], serviceLogs: [], parts: [] };
+    // 1. GLOBAL STATE DEFINITIONS
+    window.isSignUpMode = false;
+    window.auth = null;
+    window.db = null;
+    window.currentUser = null;
+    window.garage = { activeVehicleId: null, vehicles: [], fuelLogs: [], serviceLogs: [], parts: [] };
 
-    // 2. AUTH TOGGLE FUNCTION (Globally accessible to onclick)
+    // 2. TOGGLE AUTH (Sign In vs Sign Up)
     function toggleAuthMode(e) {
       if (e) {
         e.preventDefault();
         e.stopPropagation();
       }
-      isSignUpMode = !isSignUpMode;
+      window.isSignUpMode = !window.isSignUpMode;
 
       var submitBtn = document.getElementById('authSubmitBtn');
       var toggleText = document.getElementById('authToggleText');
       var toggleBtn = document.getElementById('authToggleBtn');
       var err = document.getElementById('authError');
 
-      if (submitBtn) submitBtn.innerText = isSignUpMode ? "Sign Up" : "Sign In";
-      if (toggleText) toggleText.innerText = isSignUpMode ? "Already have an account?" : "Don't have an account?";
-      if (toggleBtn) toggleBtn.innerText = isSignUpMode ? "Sign In" : "Sign Up";
+      if (submitBtn) submitBtn.innerText = window.isSignUpMode ? "Sign Up" : "Sign In";
+      if (toggleText) toggleText.innerText = window.isSignUpMode ? "Already have an account?" : "Don't have an account?";
+      if (toggleBtn) toggleBtn.innerText = window.isSignUpMode ? "Sign In" : "Sign Up";
       if (err) err.classList.add('hidden');
     }
 
-    
-// Your web app's Firebase configuration
-// For Firebase JS SDK v7.20.0 and later, measurementId is optional
+    // 3. FIREBASE CONFIGURATION (Insert your keys below)
     const firebaseConfig = {
-      apiKey: "AIzaSyA1GIv5HTZ6RibTiNt0H4e3h8z5uyu4u88",
-      authDomain: "ultimate-garagetracker.firebaseapp.com",
-      projectId: "ultimate-garagetracker",
-      storageBucket: "ultimate-garagetracker.firebasestorage.app",
-      messagingSenderId: "1021924497902",
-      appId: "1:1021924497902:web:629922edf3ffbef0e516ff",
-      measurementId: "G-M9SQQB649N"
+  apiKey: "AIzaSyA1GIv5HTZ6RibTiNt0H4e3h8z5uyu4u88",
+  authDomain: "ultimate-garagetracker.firebaseapp.com",
+  projectId: "ultimate-garagetracker",
+  storageBucket: "ultimate-garagetracker.firebasestorage.app",
+  messagingSenderId: "1021924497902",
+  appId: "1:1021924497902:web:629922edf3ffbef0e516ff",
+  measurementId: "G-M9SQQB649N"
 };
 
-// Initialize Firebase
-const app = initializeApp(firebaseConfig);
-const analytics = getAnalytics(app);
-
-    // 4. FIREBASE INITIALIZER & AUTH LISTENER
-  try {
+    // 4. INITIALIZATION
+    try {
       if (typeof firebase !== 'undefined') {
         if (!firebase.apps.length) {
           firebase.initializeApp(firebaseConfig);
         }
-        auth = firebase.auth();
-        db = firebase.firestore();
+        window.auth = firebase.auth();
+        window.db = firebase.firestore();
 
-        auth.onAuthStateChanged(async function(user) {
+        window.auth.onAuthStateChanged(async function(user) {
           var authScreen = document.getElementById('authScreen');
           var appScreen = document.getElementById('appScreen');
           if (user) {
-            currentUser = user;
+            window.currentUser = user;
             if (authScreen) authScreen.classList.add('hidden');
             if (appScreen) appScreen.classList.remove('hidden');
             await loadUserData();
           } else {
-            currentUser = null;
+            window.currentUser = null;
             if (authScreen) authScreen.classList.remove('hidden');
             if (appScreen) appScreen.classList.add('hidden');
           }
@@ -379,7 +373,7 @@ const analytics = getAnalytics(app);
       console.error("Init Error:", e);
     }
 
-    // 5. AUTH SUBMIT HANDLER
+    // 5. SUBMIT HANDLER
     async function handleAuthSubmit(e) {
       if (e) e.preventDefault();
       var email = document.getElementById('authEmail').value.trim();
@@ -392,19 +386,19 @@ const analytics = getAnalytics(app);
         alert("Password must be at least 6 characters long.");
         return;
       }
-      if (!auth) {
-        alert("Firebase is not connected. Make sure API keys are filled in index.html.");
+      if (!window.auth) {
+        alert("Firebase is not connected. Make sure your API keys are filled in index.html.");
         return;
       }
 
       submitBtn.disabled = true;
-      submitBtn.innerText = isSignUpMode ? "Creating Account..." : "Signing In...";
+      submitBtn.innerText = window.isSignUpMode ? "Creating Account..." : "Signing In...";
 
       try {
-        if (isSignUpMode) {
-          await auth.createUserWithEmailAndPassword(email, pass);
+        if (window.isSignUpMode) {
+          await window.auth.createUserWithEmailAndPassword(email, pass);
         } else {
-          await auth.signInWithEmailAndPassword(email, pass);
+          await window.auth.signInWithEmailAndPassword(email, pass);
         }
       } catch (err) {
         alert(err.message);
@@ -414,23 +408,23 @@ const analytics = getAnalytics(app);
         }
       } finally {
         submitBtn.disabled = false;
-        submitBtn.innerText = isSignUpMode ? "Sign Up" : "Sign In";
+        submitBtn.innerText = window.isSignUpMode ? "Sign Up" : "Sign In";
       }
     }
 
     function logoutUser() {
-      if (auth) auth.signOut();
+      if (window.auth) window.auth.signOut();
     }
 
     // 6. FIRESTORE SYNC
     async function loadUserData() {
-      if (!currentUser || !db) return;
+      if (!window.currentUser || !window.db) return;
       try {
-        var doc = await db.collection('users').doc(currentUser.uid).get();
+        var doc = await window.db.collection('users').doc(window.currentUser.uid).get();
         if (doc.exists) {
-          garage = doc.data();
+          window.garage = doc.data();
         } else {
-          garage = { activeVehicleId: null, vehicles: [], fuelLogs: [], serviceLogs: [], parts: [] };
+          window.garage = { activeVehicleId: null, vehicles: [], fuelLogs: [], serviceLogs: [], parts: [] };
           await saveUserData();
         }
         renderAll();
@@ -440,9 +434,9 @@ const analytics = getAnalytics(app);
     }
 
     async function saveUserData() {
-      if (!currentUser || !db) return;
+      if (!window.currentUser || !window.db) return;
       try {
-        await db.collection('users').doc(currentUser.uid).set(garage);
+        await window.db.collection('users').doc(window.currentUser.uid).set(window.garage);
         renderAll();
       } catch (err) {
         console.error("Firestore Save Error:", err);
@@ -450,8 +444,8 @@ const analytics = getAnalytics(app);
     }
 
     function getActiveVehicle() {
-      if (!garage.vehicles || garage.vehicles.length === 0) return null;
-      return garage.vehicles.find(function(v) { return v.id === garage.activeVehicleId; }) || garage.vehicles[0];
+      if (!window.garage.vehicles || window.garage.vehicles.length === 0) return null;
+      return window.garage.vehicles.find(function(v) { return v.id === window.garage.activeVehicleId; }) || window.garage.vehicles[0];
     }
 
     // 7. UI CONTROLLERS
@@ -474,7 +468,7 @@ const analytics = getAnalytics(app);
     }
 
     function switchVehicle(id) {
-      garage.activeVehicleId = id;
+      window.garage.activeVehicleId = id;
       saveUserData();
     }
 
@@ -491,14 +485,14 @@ const analytics = getAnalytics(app);
       };
       var initOdo = parseFloat(document.getElementById('vOdo').value);
 
-      if (!garage.vehicles) garage.vehicles = [];
-      if (!garage.fuelLogs) garage.fuelLogs = [];
-      if (!garage.serviceLogs) garage.serviceLogs = [];
-      if (!garage.parts) garage.parts = [];
+      if (!window.garage.vehicles) window.garage.vehicles = [];
+      if (!window.garage.fuelLogs) window.garage.fuelLogs = [];
+      if (!window.garage.serviceLogs) window.garage.serviceLogs = [];
+      if (!window.garage.parts) window.garage.parts = [];
 
-      garage.vehicles.push(newV);
-      garage.activeVehicleId = newV.id;
-      garage.fuelLogs.push({
+      window.garage.vehicles.push(newV);
+      window.garage.activeVehicleId = newV.id;
+      window.garage.fuelLogs.push({
         id: 'f_' + Date.now(),
         vehicleId: newV.id,
         date: new Date().toISOString().split('T')[0],
@@ -517,7 +511,7 @@ const analytics = getAnalytics(app);
       var v = getActiveVehicle();
       if (!v) return;
 
-      garage.fuelLogs.push({
+      window.garage.fuelLogs.push({
         id: 'f_' + Date.now(),
         vehicleId: v.id,
         date: document.getElementById('fDate').value,
@@ -535,7 +529,7 @@ const analytics = getAnalytics(app);
       var v = getActiveVehicle();
       if (!v) return;
 
-      garage.serviceLogs.push({
+      window.garage.serviceLogs.push({
         id: 's_' + Date.now(),
         vehicleId: v.id,
         date: document.getElementById('sDate').value,
@@ -557,7 +551,7 @@ const analytics = getAnalytics(app);
       var v = getActiveVehicle();
       if (!v) return;
 
-      garage.parts.push({
+      window.garage.parts.push({
         id: 'p_' + Date.now(),
         vehicleId: v.id,
         name: document.getElementById('pName').value,
@@ -578,11 +572,11 @@ const analytics = getAnalytics(app);
     }
 
     async function deleteItem(collection, id) {
-      garage[collection] = garage[collection].filter(function(i) { return i.id !== id; });
+      window.garage[collection] = window.garage[collection].filter(function(i) { return i.id !== id; });
       await saveUserData();
     }
 
-    // 9. RENDER ENGINE & FUEL/SERVICE REMINDER FORMULAS
+    // 9. RENDER ENGINE & FORMULAS
     function renderAll() {
       var v = getActiveVehicle();
       var sel = document.getElementById('vehicleSelector');
@@ -600,7 +594,7 @@ const analytics = getAnalytics(app);
       }
 
       if (sel) {
-        sel.innerHTML = garage.vehicles.map(function(item) {
+        sel.innerHTML = window.garage.vehicles.map(function(item) {
           return '<option value="' + item.id + '" ' + (item.id === v.id ? 'selected' : '') + '>' + item.name + '</option>';
         }).join('');
       }
@@ -610,16 +604,16 @@ const analytics = getAnalytics(app);
         document.getElementById('cfgIntervalMonths').value = v.serviceIntervalMonths || '';
       }
 
-      var fuels = (garage.fuelLogs || []).filter(function(f) { return f.vehicleId === v.id; }).sort(function(a, b) { return a.odo - b.odo; });
-      var services = (garage.serviceLogs || []).filter(function(s) { return s.vehicleId === v.id; }).sort(function(a, b) { return a.odo - b.odo; });
-      var parts = (garage.parts || []).filter(function(p) { return p.vehicleId === v.id; });
+      var fuels = (window.garage.fuelLogs || []).filter(function(f) { return f.vehicleId === v.id; }).sort(function(a, b) { return a.odo - b.odo; });
+      var services = (window.garage.serviceLogs || []).filter(function(s) { return s.vehicleId === v.id; }).sort(function(a, b) { return a.odo - b.odo; });
+      var parts = (window.garage.parts || []).filter(function(p) { return p.vehicleId === v.id; });
 
       var latestFuelOdo = fuels.length ? fuels[fuels.length - 1].odo : 0;
       var latestServiceOdo = services.length ? services[services.length - 1].odo : 0;
       var currentOdo = Math.max(latestFuelOdo, latestServiceOdo);
       document.getElementById('statOdo').innerText = currentOdo ? currentOdo.toLocaleString() + ' km' : '--';
 
-      // 1. Calculate Fuel Economy
+      // Fuel Calculation
       var lastFE = '--';
       var totalSpent = 0;
       var totalDistance = 0;
@@ -654,12 +648,12 @@ const analytics = getAnalytics(app);
         '</tr>';
       });
 
-      document.getElementById('statFE').innerText = lastFE !== '--' ? lastFE + ' km/L' : '--';
+      document.getElementById('statFE').innerText = lastFE !== '--' ? `${lastFE} km/L` : '--';
       document.getElementById('statCostPerKm').innerText = (totalDistance > 0 && totalSpent > 0)
         ? '₹' + (totalSpent / totalDistance).toFixed(2) + ' /km'
         : '₹-- /km';
 
-      // 2. Render Service Logs
+      // Service Logs
       var sTbody = document.getElementById('serviceTableBody');
       sTbody.innerHTML = '';
       services.forEach(function(s) {
@@ -679,7 +673,7 @@ const analytics = getAnalytics(app);
         '</tr>';
       });
 
-      // 3. Render Parts Wear
+      // Parts Wear
       var pList = document.getElementById('partsList');
       pList.innerHTML = '';
       parts.forEach(function(p) {
@@ -700,7 +694,6 @@ const analytics = getAnalytics(app);
         '</div>';
       });
 
-      // 4. Evaluate Reminders
       evaluateServiceReminder(v, currentOdo, services);
     }
 
@@ -725,8 +718,8 @@ const analytics = getAnalytics(app);
       }
 
       var txt = [];
-      if (kmRemaining !== null) txt.push(kmRemaining + ' km left');
-      if (daysRemaining !== null) txt.push(daysRemaining + ' days left');
+      if (kmRemaining !== null) txt.push(`${kmRemaining} km left`);
+      if (daysRemaining !== null) txt.push(`${daysRemaining} days left`);
       statServiceDue.innerText = txt.join(' or ');
 
       if ((kmRemaining !== null && kmRemaining <= 0) || (daysRemaining !== null && daysRemaining <= 0)) {
@@ -734,7 +727,7 @@ const analytics = getAnalytics(app);
         alertEl.innerText = '🚨 Service Overdue! Passed threshold (' + (kmRemaining <= 0 ? 'KM exceeded' : 'Time exceeded') + ').';
       } else if ((kmRemaining !== null && kmRemaining <= 200) || (daysRemaining !== null && daysRemaining <= 15)) {
         alertEl.className = 'alert-banner warning';
-        alertEl.innerText = '⚠️ Service Due Soon: ' + txt.join(' | ');
+        alertEl.innerText = `⚠️ Service Due Soon: ${txt.join(' | ')}`;
       } else {
         alertEl.classList.add('hidden');
       }
