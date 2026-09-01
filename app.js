@@ -18,7 +18,8 @@ const firebaseConfig = {
 
 
 // Global App State
-let auth, db;
+let auth = null;
+let db = null;
 let currentUser = null;
 let garage = {
   activeVehicleId: null,
@@ -29,55 +30,39 @@ let garage = {
 };
 let isSignUpMode = false;
 
-// Safe Firebase Initializer
+// Initialize Firebase immediately
 try {
-  if (typeof firebase === 'undefined') {
-    console.error("Firebase SDK failed to load.");
-  } else {
+  if (typeof firebase !== 'undefined') {
     if (!firebase.apps.length) {
       firebase.initializeApp(firebaseConfig);
     }
     auth = firebase.auth();
     db = firebase.firestore();
+
+    auth.onAuthStateChanged(async (user) => {
+      const authScreen = document.getElementById('authScreen');
+      const appScreen = document.getElementById('appScreen');
+
+      if (user) {
+        currentUser = user;
+        if (authScreen) authScreen.classList.add('hidden');
+        if (appScreen) appScreen.classList.remove('hidden');
+        await loadUserData();
+      } else {
+        currentUser = null;
+        if (authScreen) authScreen.classList.remove('hidden');
+        if (appScreen) appScreen.classList.add('hidden');
+      }
+    });
+  } else {
+    alert("Firebase SDK failed to load. Check your internet connection.");
   }
 } catch (err) {
   console.error("Firebase Init Error:", err);
+  alert("Firebase Init Error: " + err.message);
 }
 
-// ------------------------------------------
-// 2. AUTH STATE & EVENT LISTENERS
-// ------------------------------------------
-if (auth) {
-  auth.onAuthStateChanged(async (user) => {
-    const authScreen = document.getElementById('authScreen');
-    const appScreen = document.getElementById('appScreen');
-
-    if (user) {
-      currentUser = user;
-      if (authScreen) authScreen.classList.add('hidden');
-      if (appScreen) appScreen.classList.remove('hidden');
-      await loadUserData();
-    } else {
-      currentUser = null;
-      if (authScreen) authScreen.classList.remove('hidden');
-      if (appScreen) appScreen.classList.add('hidden');
-    }
-  });
-}
-
-document.addEventListener('DOMContentLoaded', () => {
-  const authForm = document.getElementById('authForm');
-  const authToggleBtn = document.getElementById('authToggleBtn');
-
-  if (authToggleBtn) {
-    authToggleBtn.addEventListener('click', toggleAuthMode);
-  }
-
-  if (authForm) {
-    authForm.addEventListener('submit', handleAuthSubmit);
-  }
-});
-
+// Switch between Login and Sign Up
 function toggleAuthMode(e) {
   if (e) e.preventDefault();
   isSignUpMode = !isSignUpMode;
@@ -93,16 +78,17 @@ function toggleAuthMode(e) {
   if (errorEl) errorEl.classList.add('hidden');
 }
 
+// Handle Form Submission
 async function handleAuthSubmit(e) {
-  e.preventDefault();
-  
+  if (e) e.preventDefault();
+
   const email = document.getElementById('authEmail').value.trim();
   const pass = document.getElementById('authPassword').value;
   const errorEl = document.getElementById('authError');
   const submitBtn = document.getElementById('authSubmitBtn');
 
   if (!email || !pass) {
-    alert("Please enter both an email and password.");
+    alert("Please enter both email and password.");
     return;
   }
 
@@ -112,7 +98,7 @@ async function handleAuthSubmit(e) {
   }
 
   if (!auth) {
-    alert("Firebase Auth failed to initialize. Check your API keys in app.js!");
+    alert("Firebase is not initialized. Please verify your API keys in app.js.");
     return;
   }
 
@@ -122,13 +108,12 @@ async function handleAuthSubmit(e) {
   try {
     if (isSignUpMode) {
       await auth.createUserWithEmailAndPassword(email, pass);
-      alert("Account created successfully!");
     } else {
       await auth.signInWithEmailAndPassword(email, pass);
     }
   } catch (err) {
-    console.error("Firebase Error:", err);
-    alert("Auth Error: " + err.message);
+    console.error("Auth Error:", err);
+    alert("Firebase Error: " + err.message);
     if (errorEl) {
       errorEl.innerText = err.message;
       errorEl.classList.remove('hidden');
@@ -138,6 +123,7 @@ async function handleAuthSubmit(e) {
     submitBtn.innerText = isSignUpMode ? "Sign Up" : "Sign In";
   }
 }
+
 function logoutUser() {
   if (auth) auth.signOut();
 }
