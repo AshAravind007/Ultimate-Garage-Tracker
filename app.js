@@ -16,51 +16,132 @@ const firebaseConfig = {
   measurementId: "G-M9SQQB649N"
 };
 
-// Initialize Firebase
-const app = initializeApp(firebaseConfig);
-const analytics = getAnalytics(app);
-
-// DEFAULT DATA STRUCTURE
-const STORAGE_KEY = 'motolog_garage_data';
-
-let garage = JSON.parse(localStorage.getItem(STORAGE_KEY)) || {
-  activeVehicleId: "v1",
-  vehicles: [
-    {
-      id: "v1",
-      name: "TVS NTorq 125 (2018)",
-      regNumber: "KA-04",
-      serviceIntervalKm: 2500,
-      serviceIntervalMonths: 3,
-      createdAt: new Date().toISOString()
-    }
-  ],
-  fuelLogs: [
-    { id: "f1", vehicleId: "v1", date: "2026-08-10", odo: 52635, liters: 4.36, rate: 127.98, brand: "Shell V-Power" },
-    { id: "f2", vehicleId: "v1", date: "2026-08-18", odo: 52783, liters: 4.11, rate: 110.93, brand: "HP Petrol" },
-    { id: "f3", vehicleId: "v1", date: "2026-08-25", odo: 52937, liters: 4.11, rate: 127.98, brand: "Shell Petrol" },
-    { id: "f4", vehicleId: "v1", date: "2026-08-30", odo: 53113, liters: 4.11, rate: 110.93, brand: "HP Petrol" },
-    { id: "f5", vehicleId: "v1", date: "2026-08-31", odo: 53282, liters: 4.11, rate: 110.93, brand: "HP Petrol" }
-  ],
+let auth, db;
+let currentUser = null;
+let garage = {
+  activeVehicleId: null,
+  vehicles: [],
+  fuelLogs: [],
   serviceLogs: [],
-  parts: [
-    { id: "p1", vehicleId: "v1", name: "Engine Oil (Motul 10W-30)", installedOdo: 52635, lifeKm: 3000 },
-    { id: "p2", vehicleId: "v1", name: "CVT Drive Belt", installedOdo: 45000, lifeKm: 20000 }
-  ]
+  parts: []
 };
+let isSignUpMode = false;
 
-function saveToLocalStorage() {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(garage));
-  renderAll();
+// Safe Initialization
+try {
+  if (typeof firebase === 'undefined') {
+    throw new Error("Firebase SDK failed to load. Check your internet or index.html scripts.");
+  }
+  if (!firebase.apps.length) {
+    firebase.initializeApp(firebaseConfig);
+  }
+  auth = firebase.auth();
+  db = firebase.firestore();
+} catch (err) {
+  console.error("Firebase Init Error:", err);
+  alert("Firebase Initialization Error: " + err.message);
+}
+
+// ------------------------------------------
+// AUTHENTICATION CONTROLLER
+// ------------------------------------------
+if (auth) {
+  auth.onAuthStateChanged(async (user) => {
+    const authScreen = document.getElementById('authScreen');
+    const appScreen = document.getElementById('appScreen');
+
+    if (user) {
+      currentUser = user;
+      if (authScreen) authScreen.classList.add('hidden');
+      if (appScreen) appScreen.classList.remove('hidden');
+      await loadUserData();
+    } else {
+      currentUser = null;
+      if (authScreen) authScreen.classList.remove('hidden');
+      if (appScreen) appScreen.classList.add('hidden');
+    }
+  });
+}
+
+function toggleAuthMode(e) {
+  if (e) e.preventDefault();
+  isSignUpMode = !isSignUpMode;
+  document.getElementById('authSubmitBtn').innerText = isSignUpMode ? "Sign Up" : "Sign In";
+  document.getElementById('authToggleText').innerText = isSignUpMode ? "Already have an account?" : "Don't have an account?";
+  document.getElementById('authToggleLink').innerText = isSignUpMode ? "Sign In" : "Sign Up";
+  document.getElementById('authError').classList.add('hidden');
+}
+
+async function handleAuth(e) {
+  e.preventDefault();
+  const email = document.getElementById('authEmail').value;
+  const pass = document.getElementById('authPassword').value;
+  const errorEl = document.getElementById('authError');
+  errorEl.classList.add('hidden');
+
+  try {
+    if (isSignUpMode) {
+      await auth.createUserWithEmailAndPassword(email, pass);
+    } else {
+      await auth.signInWithEmailAndPassword(email, pass);
+    }
+  } catch (err) {
+    errorEl.innerText = err.message;
+    errorEl.classList.remove('hidden');
+  }
+}
+
+function logoutUser() {
+  if (auth) auth.signOut();
+}
+
+// ------------------------------------------
+// DATABASE SYNC
+// ------------------------------------------
+async function loadUserData() {
+  if (!currentUser || !db) return;
+  try {
+    const docRef = db.collection('users').doc(currentUser.uid);
+    const doc = await docRef.get();
+
+    if (doc.exists) {
+      garage = doc.data();
+    } else {
+      garage = {
+        activeVehicleId: null,
+        vehicles: [],
+        fuelLogs: [],
+        serviceLogs: [],
+        parts: []
+      };
+      await saveUserData();
+    }
+    renderAll();
+  } catch (err) {
+    console.error("Firestore Load Error:", err);
+    alert("Database access error. Please check your Firestore rules.");
+  }
+}
+
+async function saveUserData() {
+  if (!currentUser || !db) return;
+  try {
+    await db.collection('users').doc(currentUser.uid).set(garage);
+    renderAll();
+  } catch (err) {
+    console.error("Firestore Save Error:", err);
+    alert("Could not save to cloud: " + err.message);
+  }
 }
 
 function getActiveVehicle() {
+  if (!garage.vehicles || garage.vehicles.length === 0) return null;
   return garage.vehicles.find(v => v.id === garage.activeVehicleId) || garage.vehicles[0];
 }
 
-// ----------------------------------------------------
-// TAB NAVIGATION & MODALS
-// ----------------------------------------------------
+// ------------------------------------------
+// UI NAVIGATION & MODALS
+// ------------------------------------------
 function showTab(tabId, element) {
   document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
   document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
@@ -69,26 +150,24 @@ function showTab(tabId, element) {
 }
 
 function openModal(id) {
-  document.getElementById(id).classList.add('active');
-  // Set default date to today
+  const modal = document.getElementById(id);
+  if (modal) modal.classList.add('active');
   const today = new Date().toISOString().split('T')[0];
-  if(document.getElementById('fDate')) document.getElementById('fDate').value = today;
-  if(document.getElementById('sDate')) document.getElementById('sDate').value = today;
+  if (document.getElementById('fDate')) document.getElementById('fDate').value = today;
+  if (document.getElementById('sDate')) document.getElementById('sDate').value = today;
 }
 
 function closeModal(id) {
-  document.getElementById(id).classList.remove('active');
+  const modal = document.getElementById(id);
+  if (modal) modal.classList.remove('active');
 }
 
-// ----------------------------------------------------
-// VEHICLE MANAGEMENT
-// ----------------------------------------------------
 function switchVehicle(id) {
   garage.activeVehicleId = id;
-  saveToLocalStorage();
+  saveUserData();
 }
 
-function addVehicle(e) {
+async function addVehicle(e) {
   e.preventDefault();
   const newV = {
     id: 'v_' + Date.now(),
@@ -99,10 +178,15 @@ function addVehicle(e) {
     createdAt: new Date().toISOString()
   };
   const initOdo = parseFloat(document.getElementById('vOdo').value);
+  
+  if (!garage.vehicles) garage.vehicles = [];
+  if (!garage.fuelLogs) garage.fuelLogs = [];
+  if (!garage.serviceLogs) garage.serviceLogs = [];
+  if (!garage.parts) garage.parts = [];
+
   garage.vehicles.push(newV);
   garage.activeVehicleId = newV.id;
 
-  // Initial dummy fuel log to seed odo
   garage.fuelLogs.push({
     id: 'f_' + Date.now(),
     vehicleId: newV.id,
@@ -110,19 +194,17 @@ function addVehicle(e) {
     odo: initOdo,
     liters: 0,
     rate: 0,
-    brand: "Initial Odo Seed"
+    brand: "Baseline Odometer"
   });
 
   closeModal('vehicleModal');
-  saveToLocalStorage();
+  await saveUserData();
 }
 
-// ----------------------------------------------------
-// FUEL & SERVICE LOGGING
-// ----------------------------------------------------
-function addFuelLog(e) {
+async function addFuelLog(e) {
   e.preventDefault();
   const v = getActiveVehicle();
+  if (!v) return;
   garage.fuelLogs.push({
     id: 'f_' + Date.now(),
     vehicleId: v.id,
@@ -133,12 +215,13 @@ function addFuelLog(e) {
     brand: document.getElementById('fBrand').value || 'Standard'
   });
   closeModal('fuelModal');
-  saveToLocalStorage();
+  await saveUserData();
 }
 
-function addServiceLog(e) {
+async function addServiceLog(e) {
   e.preventDefault();
   const v = getActiveVehicle();
+  if (!v) return;
   garage.serviceLogs.push({
     id: 's_' + Date.now(),
     vehicleId: v.id,
@@ -153,12 +236,13 @@ function addServiceLog(e) {
     partsCost: parseFloat(document.getElementById('sPartsCost').value) || 0
   });
   closeModal('serviceModal');
-  saveToLocalStorage();
+  await saveUserData();
 }
 
-function addTrackedPart(e) {
+async function addTrackedPart(e) {
   e.preventDefault();
   const v = getActiveVehicle();
+  if (!v) return;
   garage.parts.push({
     id: 'p_' + Date.now(),
     vehicleId: v.id,
@@ -167,45 +251,64 @@ function addTrackedPart(e) {
     lifeKm: parseFloat(document.getElementById('pLifeKm').value)
   });
   closeModal('partModal');
-  saveToLocalStorage();
+  await saveUserData();
 }
 
-function saveServiceConfig(e) {
+async function saveServiceConfig(e) {
   e.preventDefault();
   const v = getActiveVehicle();
+  if (!v) return;
   v.serviceIntervalKm = parseFloat(document.getElementById('cfgIntervalKm').value) || null;
   v.serviceIntervalMonths = parseFloat(document.getElementById('cfgIntervalMonths').value) || null;
-  saveToLocalStorage();
+  await saveUserData();
 }
 
-// ----------------------------------------------------
-// RENDERING & CALCULATIONS ENGINE
-// ----------------------------------------------------
+async function deleteItem(collection, id) {
+  garage[collection] = garage[collection].filter(item => item.id !== id);
+  await saveUserData();
+}
+
+// ------------------------------------------
+// RENDER ENGINE
+// ------------------------------------------
 function renderAll() {
   const v = getActiveVehicle();
-  
-  // Render Vehicle Dropdown
   const selector = document.getElementById('vehicleSelector');
-  selector.innerHTML = garage.vehicles.map(item => `
-    <option value="${item.id}" ${item.id === v.id ? 'selected' : ''}>${item.name}</option>
-  `).join('');
 
-  document.getElementById('cfgIntervalKm').value = v.serviceIntervalKm || '';
-  document.getElementById('cfgIntervalMonths').value = v.serviceIntervalMonths || '';
+  if (!v) {
+    if (selector) selector.innerHTML = '<option>No Bikes Added</option>';
+    document.getElementById('statOdo').innerText = '--';
+    document.getElementById('statFE').innerText = '--';
+    document.getElementById('statCostPerKm').innerText = '--';
+    document.getElementById('statServiceDue').innerText = '--';
+    document.getElementById('fuelTableBody').innerHTML = '<tr><td colspan="11" style="text-align:center;">Click "+ Add Bike" above to start your garage!</td></tr>';
+    document.getElementById('serviceTableBody').innerHTML = '';
+    document.getElementById('partsList').innerHTML = '<p style="color:var(--text-muted)">Add a bike to begin tracking.</p>';
+    return;
+  }
 
-  // Filter logs for active vehicle
-  const fuels = garage.fuelLogs.filter(f => f.vehicleId === v.id).sort((a,b) => a.odo - b.odo);
-  const services = garage.serviceLogs.filter(s => s.vehicleId === v.id).sort((a,b) => a.odo - b.odo);
-  const parts = garage.parts.filter(p => p.vehicleId === v.id);
+  if (selector) {
+    selector.innerHTML = garage.vehicles.map(item => `
+      <option value="${item.id}" ${item.id === v.id ? 'selected' : ''}>${item.name}</option>
+    `).join('');
+  }
 
-  // Latest overall Odometer
+  if (document.getElementById('cfgIntervalKm')) {
+    document.getElementById('cfgIntervalKm').value = v.serviceIntervalKm || '';
+    document.getElementById('cfgIntervalMonths').value = v.serviceIntervalMonths || '';
+  }
+
+  const fuels = (garage.fuelLogs || []).filter(f => f.vehicleId === v.id).sort((a,b) => a.odo - b.odo);
+  const services = (garage.serviceLogs || []).filter(s => s.vehicleId === v.id).sort((a,b) => a.odo - b.odo);
+  const parts = (garage.parts || []).filter(p => p.vehicleId === v.id);
+
   const latestFuelOdo = fuels.length ? fuels[fuels.length - 1].odo : 0;
   const latestServiceOdo = services.length ? services[services.length - 1].odo : 0;
   const currentOdo = Math.max(latestFuelOdo, latestServiceOdo);
 
   document.getElementById('statOdo').innerText = currentOdo ? `${currentOdo.toLocaleString()} km` : '--';
 
-  // 1. Render Fuel Table & Calculate Stats
+  // 1. Fuel Table
   let lastFE = '--';
   let totalSpent = 0;
   let totalDistance = 0;
@@ -247,11 +350,11 @@ function renderAll() {
     ? `₹${(totalSpent / totalDistance).toFixed(2)} /km` 
     : '₹-- /km';
 
-  // 2. Render Service Logs
+  // 2. Service Table
   const serviceTbody = document.getElementById('serviceTableBody');
   serviceTbody.innerHTML = '';
   services.forEach(s => {
-    const totalBill = s.laborCost + s.partsCost;
+    const totalBill = (s.laborCost || 0) + (s.partsCost || 0);
     serviceTbody.innerHTML += `
       <tr>
         <td>${s.date}</td>
@@ -261,15 +364,15 @@ function renderAll() {
         <td>${s.mechName || '-'}</td>
         <td>${s.mechPhone ? `<a class="phone-link" href="tel:${s.mechPhone}">📞 ${s.mechPhone}</a>` : '-'}</td>
         <td>${s.billNumber || '-'}</td>
-        <td>₹${s.laborCost.toFixed(2)}</td>
-        <td>₹${s.partsCost.toFixed(2)}</td>
+        <td>₹${(s.laborCost || 0).toFixed(2)}</td>
+        <td>₹${(s.partsCost || 0).toFixed(2)}</td>
         <td><strong>₹${totalBill.toFixed(2)}</strong></td>
         <td><button class="btn btn-danger" onclick="deleteItem('serviceLogs', '${s.id}')">✕</button></td>
       </tr>
     `;
   });
 
-  // 3. Render Parts Wear
+  // 3. Spare Parts Wear
   const partsContainer = document.getElementById('partsList');
   partsContainer.innerHTML = '';
   parts.forEach(p => {
@@ -296,7 +399,7 @@ function renderAll() {
     `;
   });
 
-  // 4. Smart Service Interval Logic (Whichever comes first)
+  // 4. Reminders
   evaluateServiceReminder(v, currentOdo, services);
 }
 
@@ -318,12 +421,10 @@ function evaluateServiceReminder(v, currentOdo, services) {
   if (v.serviceIntervalMonths) {
     let targetDate = new Date(lastServiceDate);
     targetDate.setMonth(targetDate.getMonth() + v.serviceIntervalMonths);
-    const today = new Date();
-    const diffTime = targetDate - today;
+    const diffTime = targetDate - new Date();
     daysRemaining = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
   }
 
-  // Display status
   if (kmRemaining === null && daysRemaining === null) {
     statServiceDue.innerText = "No Interval Set";
     alertEl.classList.add('hidden');
@@ -335,10 +436,9 @@ function evaluateServiceReminder(v, currentOdo, services) {
   if (daysRemaining !== null) statusText.push(`${daysRemaining} days left`);
   statServiceDue.innerText = statusText.join(' or ');
 
-  // Alert triggers
   if ((kmRemaining !== null && kmRemaining <= 0) || (daysRemaining !== null && daysRemaining <= 0)) {
     alertEl.className = 'alert-banner danger';
-    alertEl.innerText = `🚨 Service Overdue! You have passed the target threshold (${kmRemaining <= 0 ? 'KM exceeded' : 'Time exceeded'}).`;
+    alertEl.innerText = `🚨 Service Overdue! Passed threshold (${kmRemaining <= 0 ? 'KM exceeded' : 'Time exceeded'}).`;
   } else if ((kmRemaining !== null && kmRemaining <= 200) || (daysRemaining !== null && daysRemaining <= 15)) {
     alertEl.className = 'alert-banner warning';
     alertEl.innerText = `⚠️ Service Due Soon: ${statusText.join(' | ')}`;
@@ -346,33 +446,3 @@ function evaluateServiceReminder(v, currentOdo, services) {
     alertEl.classList.add('hidden');
   }
 }
-
-function deleteItem(collection, id) {
-  garage[collection] = garage[collection].filter(item => item.id !== id);
-  saveToLocalStorage();
-}
-
-function exportData() {
-  const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(garage, null, 2));
-  const dlAnchor = document.createElement('a');
-  dlAnchor.setAttribute("href", dataStr);
-  dlAnchor.setAttribute("download", `motolog_backup_${new Date().toISOString().split('T')[0]}.json`);
-  dlAnchor.click();
-}
-
-function importData(event) {
-  const reader = new FileReader();
-  reader.onload = function(e) {
-    try {
-      garage = JSON.parse(e.target.result);
-      saveToLocalStorage();
-      alert("Garage data restored successfully!");
-    } catch(err) {
-      alert("Invalid JSON backup file.");
-    }
-  };
-  reader.readAsText(event.target.files[0]);
-}
-
-// Initial boot
-document.addEventListener('DOMContentLoaded', renderAll);
