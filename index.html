@@ -4,21 +4,91 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Ultimate Garage Tracker</title>
-  <link rel="stylesheet" href="style.css" />
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   
+  <!-- Firebase SDKs -->
   <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+
+  <style>
+    :root {
+      --bg-dark: #0f172a;
+      --card-bg: #1e293b;
+      --border: #334155;
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+      --primary: #3b82f6;
+      --primary-hover: #2563eb;
+      --green: #10b981;
+      --yellow: #f59e0b;
+      --red: #ef4444;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Inter', sans-serif; }
+    body { background-color: var(--bg-dark); color: var(--text-main); min-height: 100vh; padding-bottom: 50px; }
+    .navbar { display: flex; justify-content: space-between; align-items: center; padding: 16px 24px; background-color: var(--card-bg); border-bottom: 1px solid var(--border); }
+    .brand { display: flex; align-items: center; gap: 10px; }
+    .brand h1 { font-size: 1.25rem; font-weight: 700; }
+    .version-badge { background: rgba(59, 130, 246, 0.15); color: var(--primary); border: 1px solid var(--primary); font-size: 0.72rem; padding: 2px 6px; border-radius: 4px; font-weight: 600; }
+    .vehicle-controls { display: flex; gap: 10px; }
+    select, input { background: var(--bg-dark); border: 1px solid var(--border); color: var(--text-main); padding: 8px 12px; border-radius: 6px; font-size: 0.9rem; }
+    .container { max-width: 1200px; margin: 24px auto; padding: 0 16px; }
+    .auth-wrapper { display: flex; justify-content: center; align-items: center; min-height: 100vh; padding: 16px; }
+    .auth-card { background: var(--card-bg); border: 1px solid var(--border); padding: 32px; border-radius: 12px; width: 100%; max-width: 400px; }
+    .brand-center { text-align: center; display: flex; flex-direction: column; align-items: center; gap: 6px; }
+    .link-btn { background: none; border: none; color: var(--primary); font-weight: 600; cursor: pointer; text-decoration: underline; font-size: 0.88rem; }
+    .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; margin-bottom: 24px; }
+    .stat-card { background: var(--card-bg); border: 1px solid var(--border); padding: 18px; border-radius: 8px; display: flex; flex-direction: column; gap: 8px; }
+    .stat-label { font-size: 0.85rem; color: var(--text-muted); }
+    .stat-value { font-size: 1.4rem; font-weight: 700; }
+    .text-green { color: var(--green); }
+    .text-blue { color: var(--primary); }
+    .text-yellow { color: var(--yellow); }
+    .text-red { color: var(--red); }
+    .alert-banner { padding: 12px 18px; border-radius: 8px; margin-bottom: 24px; font-weight: 600; }
+    .alert-banner.warning { background: rgba(245, 158, 11, 0.2); border: 1px solid var(--yellow); color: var(--yellow); }
+    .alert-banner.danger { background: rgba(239, 68, 68, 0.2); border: 1px solid var(--red); color: var(--red); }
+    .hidden { display: none !important; }
+    .tab-nav { display: flex; gap: 10px; border-bottom: 1px solid var(--border); margin-bottom: 24px; overflow-x: auto; }
+    .tab-btn { background: none; border: none; color: var(--text-muted); padding: 12px 16px; font-weight: 600; cursor: pointer; border-bottom: 2px solid transparent; white-space: nowrap; }
+    .tab-btn.active { color: var(--primary); border-color: var(--primary); }
+    .tab-content { display: none; }
+    .tab-content.active { display: block; }
+    .section-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+    .btn { padding: 8px 16px; border-radius: 6px; border: none; font-weight: 600; cursor: pointer; }
+    .btn-primary { background: var(--primary); color: white; }
+    .btn-secondary { background: var(--border); color: white; }
+    .btn-success { background: var(--green); color: white; }
+    .btn-danger { background: var(--red); color: white; padding: 4px 8px; font-size: 0.8rem; }
+    .full-width { width: 100%; margin-top: 10px; padding: 10px; }
+    .table-container { overflow-x: auto; background: var(--card-bg); border-radius: 8px; border: 1px solid var(--border); }
+    table { width: 100%; border-collapse: collapse; text-align: left; }
+    th, td { padding: 12px 16px; border-bottom: 1px solid var(--border); font-size: 0.88rem; }
+    th { background-color: rgba(255, 255, 255, 0.03); color: var(--text-muted); font-weight: 600; }
+    .parts-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; }
+    .part-card { background: var(--card-bg); border: 1px solid var(--border); padding: 18px; border-radius: 8px; }
+    .progress-bar-bg { background: var(--bg-dark); height: 8px; border-radius: 4px; overflow: hidden; margin: 12px 0; }
+    .progress-bar-fill { height: 100%; }
+    .modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.7); justify-content: center; align-items: center; padding: 16px; z-index: 999; }
+    .modal.active { display: flex; }
+    .modal-dialog { background: var(--card-bg); border: 1px solid var(--border); padding: 24px; border-radius: 8px; width: 100%; max-width: 500px; }
+    .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+    .close-btn { font-size: 1.5rem; cursor: pointer; color: var(--text-muted); }
+    .form-group { display: flex; flex-direction: column; gap: 6px; margin-bottom: 14px; }
+    .form-row { display: flex; gap: 12px; }
+    .form-row .form-group { flex: 1; }
+    .settings-card { background: var(--card-bg); border: 1px solid var(--border); padding: 20px; border-radius: 8px; }
+    .phone-link { color: var(--primary); text-decoration: none; font-weight: 600; }
+  </style>
 </head>
 <body>
 
- <div id="authScreen" class="auth-wrapper">
+  <!-- AUTH SCREEN -->
+  <div id="authScreen" class="auth-wrapper">
     <div class="auth-card">
       <div class="brand-center">
-        <span class="logo-icon" style="font-size: 2.5rem;">🏍️</span>
+        <span style="font-size: 2.5rem;">🏍️</span>
         <h2>Ultimate Garage Tracker</h2>
         <span class="version-badge">v1.2.0</span>
         <p style="color: var(--text-muted); font-size: 0.9rem; margin-top: 6px;">
@@ -46,11 +116,12 @@
       </div>
     </div>
   </div>
-  
+
+  <!-- MAIN APP SCREEN -->
   <div id="appScreen" class="hidden">
     <header class="navbar">
       <div class="brand">
-        <span class="logo-icon">🏍️</span>
+        <span>🏍️</span>
         <h1>Ultimate Garage Tracker</h1>
         <span class="version-badge">v1.2.0</span>
       </div>
@@ -99,17 +170,7 @@
           <table>
             <thead>
               <tr>
-                <th>Date</th>
-                <th>Odometer</th>
-                <th>Trip Dist</th>
-                <th>Fuel (L)</th>
-                <th>Rate (₹/L)</th>
-                <th>Total Cost</th>
-                <th>Brand</th>
-                <th>FE (km/L)</th>
-                <th>Cost/km</th>
-                <th>km/₹</th>
-                <th>Action</th>
+                <th>Date</th><th>Odometer</th><th>Trip</th><th>Fuel (L)</th><th>Rate (₹/L)</th><th>Total Cost</th><th>Brand</th><th>FE (km/L)</th><th>Cost/km</th><th>km/₹</th><th>Action</th>
               </tr>
             </thead>
             <tbody id="fuelTableBody"></tbody>
@@ -126,16 +187,7 @@
           <table>
             <thead>
               <tr>
-                <th>Date</th>
-                <th>Odometer</th>
-                <th>Service Title</th>
-                <th>Workshop</th>
-                <th>Mechanic</th>
-                <th>Bill #</th>
-                <th>Labor</th>
-                <th>Parts</th>
-                <th>Total</th>
-                <th>Action</th>
+                <th>Date</th><th>Odometer</th><th>Title</th><th>Workshop</th><th>Mechanic</th><th>Bill #</th><th>Labor</th><th>Parts</th><th>Total</th><th>Action</th>
               </tr>
             </thead>
             <tbody id="serviceTableBody"></tbody>
@@ -146,7 +198,7 @@
       <section id="partsTab" class="tab-content">
         <div class="section-header">
           <h2>Component Wear Tracker</h2>
-          <button class="btn btn-primary" onclick="openModal('partModal')">+ Track New Part</button>
+          <button class="btn btn-primary" onclick="openModal('partModal')">+ Track Part</button>
         </div>
         <div class="parts-grid" id="partsList"></div>
       </section>
@@ -157,40 +209,29 @@
           <form id="serviceConfigForm" onsubmit="saveServiceConfig(event)">
             <div class="form-row">
               <div class="form-group">
-                <label>Service Interval (in Kilometers):</label>
-                <input type="number" id="cfgIntervalKm" placeholder="e.g. 2500" />
+                <label>Interval (KM):</label>
+                <input type="number" id="cfgIntervalKm" placeholder="2500" />
               </div>
               <div class="form-group">
-                <label>Service Interval (in Months):</label>
-                <input type="number" id="cfgIntervalMonths" placeholder="e.g. 3" />
+                <label>Interval (Months):</label>
+                <input type="number" id="cfgIntervalMonths" placeholder="3" />
               </div>
             </div>
-            <button type="submit" class="btn btn-success">Update Service Triggers</button>
+            <button type="submit" class="btn btn-success">Update Triggers</button>
           </form>
         </div>
       </section>
     </main>
   </div>
 
+  <!-- MODALS -->
   <div id="vehicleModal" class="modal">
     <div class="modal-dialog">
-      <div class="modal-header">
-        <h3>Add New Bike</h3>
-        <span class="close-btn" onclick="closeModal('vehicleModal')">&times;</span>
-      </div>
+      <div class="modal-header"><h3>Add New Bike</h3><span class="close-btn" onclick="closeModal('vehicleModal')">&times;</span></div>
       <form onsubmit="addVehicle(event)">
-        <div class="form-group">
-          <label>Bike Name / Model *</label>
-          <input type="text" id="vName" required placeholder="e.g. TVS NTorq 125 (2018)" />
-        </div>
-        <div class="form-group">
-          <label>Registration Number</label>
-          <input type="text" id="vReg" placeholder="e.g. KA-04-XX-0000" />
-        </div>
-        <div class="form-group">
-          <label>Initial Odometer (km) *</label>
-          <input type="number" id="vOdo" required placeholder="e.g. 52635" />
-        </div>
+        <div class="form-group"><label>Bike Name *</label><input type="text" id="vName" required placeholder="TVS NTorq 125" /></div>
+        <div class="form-group"><label>Registration #</label><input type="text" id="vReg" placeholder="KA-04-XX-0000" /></div>
+        <div class="form-group"><label>Initial Odometer (km) *</label><input type="number" id="vOdo" required placeholder="52635" /></div>
         <button type="submit" class="btn btn-primary full-width">Add Bike</button>
       </form>
     </div>
@@ -198,33 +239,15 @@
 
   <div id="fuelModal" class="modal">
     <div class="modal-dialog">
-      <div class="modal-header">
-        <h3>Log Fuel Refill</h3>
-        <span class="close-btn" onclick="closeModal('fuelModal')">&times;</span>
-      </div>
+      <div class="modal-header"><h3>Log Fuel Refill</h3><span class="close-btn" onclick="closeModal('fuelModal')">&times;</span></div>
       <form onsubmit="addFuelLog(event)">
-        <div class="form-group">
-          <label>Date *</label>
-          <input type="date" id="fDate" required />
-        </div>
-        <div class="form-group">
-          <label>Odometer Reading (km) *</label>
-          <input type="number" step="any" id="fOdo" required placeholder="e.g. 53113" />
-        </div>
+        <div class="form-group"><label>Date *</label><input type="date" id="fDate" required /></div>
+        <div class="form-group"><label>Odometer (km) *</label><input type="number" step="any" id="fOdo" required /></div>
         <div class="form-row">
-          <div class="form-group">
-            <label>Fuel Volume (Liters) *</label>
-            <input type="number" step="0.01" id="fLiters" required placeholder="4.11" />
-          </div>
-          <div class="form-group">
-            <label>Rate / Liter (₹) *</label>
-            <input type="number" step="0.01" id="fRate" required placeholder="110.93" />
-          </div>
+          <div class="form-group"><label>Fuel (L) *</label><input type="number" step="0.01" id="fLiters" required placeholder="4.11" /></div>
+          <div class="form-group"><label>Rate (₹) *</label><input type="number" step="0.01" id="fRate" required placeholder="110.93" /></div>
         </div>
-        <div class="form-group">
-          <label>Fuel Brand / Bunk Details</label>
-          <input type="text" id="fBrand" placeholder="e.g. HP Normal, Shell V-Power" />
-        </div>
+        <div class="form-group"><label>Brand</label><input type="text" id="fBrand" placeholder="HP Normal, Shell" /></div>
         <button type="submit" class="btn btn-primary full-width">Save Fuel Record</button>
       </form>
     </div>
@@ -232,86 +255,386 @@
 
   <div id="serviceModal" class="modal">
     <div class="modal-dialog">
-      <div class="modal-header">
-        <h3>Log Maintenance & Service</h3>
-        <span class="close-btn" onclick="closeModal('serviceModal')">&times;</span>
-      </div>
+      <div class="modal-header"><h3>Log Service</h3><span class="close-btn" onclick="closeModal('serviceModal')">&times;</span></div>
       <form onsubmit="addServiceLog(event)">
         <div class="form-row">
-          <div class="form-group">
-            <label>Date *</label>
-            <input type="date" id="sDate" required />
-          </div>
-          <div class="form-group">
-            <label>Odometer (km) *</label>
-            <input type="number" id="sOdo" required placeholder="e.g. 52000" />
-          </div>
+          <div class="form-group"><label>Date *</label><input type="date" id="sDate" required /></div>
+          <div class="form-group"><label>Odometer *</label><input type="number" id="sOdo" required /></div>
         </div>
-        <div class="form-group">
-          <label>Service Summary *</label>
-          <input type="text" id="sTitle" required placeholder="e.g. Periodic Service, Oil Change" />
+        <div class="form-group"><label>Summary *</label><input type="text" id="sTitle" required placeholder="Periodic Service" /></div>
+        <div class="form-row">
+          <div class="form-group"><label>Garage</label><input type="text" id="sGarage" placeholder="Speed Motors" /></div>
+          <div class="form-group"><label>Mechanic</label><input type="text" id="sMechName" placeholder="Ramesh" /></div>
         </div>
         <div class="form-row">
-          <div class="form-group">
-            <label>Workshop / Garage Name</label>
-            <input type="text" id="sGarage" placeholder="Speed Motors, KR Puram" />
-          </div>
-          <div class="form-group">
-            <label>Mechanic Name</label>
-            <input type="text" id="sMechName" placeholder="Ramesh" />
-          </div>
+          <div class="form-group"><label>Phone</label><input type="tel" id="sMechPhone" placeholder="9876543210" /></div>
+          <div class="form-group"><label>Bill #</label><input type="text" id="sBill" placeholder="INV-1029" /></div>
         </div>
         <div class="form-row">
-          <div class="form-group">
-            <label>Mechanic Phone</label>
-            <input type="tel" id="sMechPhone" placeholder="9876543210" />
-          </div>
-          <div class="form-group">
-            <label>Bill / Invoice #</label>
-            <input type="text" id="sBill" placeholder="INV-1029" />
-          </div>
+          <div class="form-group"><label>Labor (₹)</label><input type="number" step="0.01" id="sLabor" value="0" /></div>
+          <div class="form-group"><label>Parts (₹)</label><input type="number" step="0.01" id="sPartsCost" value="0" /></div>
         </div>
-        <div class="form-row">
-          <div class="form-group">
-            <label>Labor Cost (₹)</label>
-            <input type="number" step="0.01" id="sLabor" value="0" />
-          </div>
-          <div class="form-group">
-            <label>Parts Cost (₹)</label>
-            <input type="number" step="0.01" id="sPartsCost" value="0" />
-          </div>
-        </div>
-        <button type="submit" class="btn btn-primary full-width">Save Service Record</button>
+        <button type="submit" class="btn btn-primary full-width">Save Record</button>
       </form>
     </div>
   </div>
 
   <div id="partModal" class="modal">
     <div class="modal-dialog">
-      <div class="modal-header">
-        <h3>Track Spare Part Lifespan</h3>
-        <span class="close-btn" onclick="closeModal('partModal')">&times;</span>
-      </div>
+      <div class="modal-header"><h3>Track Part</h3><span class="close-btn" onclick="closeModal('partModal')">&times;</span></div>
       <form onsubmit="addTrackedPart(event)">
-        <div class="form-group">
-          <label>Part Name *</label>
-          <input type="text" id="pName" required placeholder="e.g. Motul 10W-30 Oil, CVT Drive Belt" />
-        </div>
+        <div class="form-group"><label>Part Name *</label><input type="text" id="pName" required placeholder="Motul Oil" /></div>
         <div class="form-row">
-          <div class="form-group">
-            <label>Installed at Odo (km) *</label>
-            <input type="number" id="pInstalledOdo" required placeholder="e.g. 52635" />
-          </div>
-          <div class="form-group">
-            <label>Lifespan (km) *</label>
-            <input type="number" id="pLifeKm" required placeholder="e.g. 3000" />
-          </div>
+          <div class="form-group"><label>Installed Odo *</label><input type="number" id="pInstalledOdo" required /></div>
+          <div class="form-group"><label>Lifespan (km) *</label><input type="number" id="pLifeKm" required placeholder="3000" /></div>
         </div>
-        <button type="submit" class="btn btn-primary full-width">Start Tracking</button>
+        <button type="submit" class="btn btn-primary full-width">Track Part</button>
       </form>
     </div>
   </div>
 
-  <script src="app.js"></script>
+  <!-- JAVASCRIPT ENGINE -->
+  <script>
+    // 1. FIREBASE CONFIG
+    const firebaseConfig = {
+  apiKey: "AIzaSyA1GIv5HTZ6RibTiNt0H4e3h8z5uyu4u88",
+  authDomain: "ultimate-garagetracker.firebaseapp.com",
+  projectId: "ultimate-garagetracker",
+  storageBucket: "ultimate-garagetracker.firebasestorage.app",
+  messagingSenderId: "1021924497902",
+  appId: "1:1021924497902:web:629922edf3ffbef0e516ff",
+  measurementId: "G-M9SQQB649N"
+};
+
+    // Initialize Firebase
+const app = initializeApp(firebaseConfig);
+const analytics = getAnalytics(app);
+
+    let auth = null;
+    let db = null;
+    let currentUser = null;
+    let garage = { activeVehicleId: null, vehicles: [], fuelLogs: [], serviceLogs: [], parts: [] };
+    let isSignUpMode = false;
+
+    // Initialization
+    try {
+      if (typeof firebase !== 'undefined') {
+        if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
+        auth = firebase.auth();
+        db = firebase.firestore();
+
+        auth.onAuthStateChanged(async (user) => {
+          const authScreen = document.getElementById('authScreen');
+          const appScreen = document.getElementById('appScreen');
+          if (user) {
+            currentUser = user;
+            if (authScreen) authScreen.classList.add('hidden');
+            if (appScreen) appScreen.classList.remove('hidden');
+            await loadUserData();
+          } else {
+            currentUser = null;
+            if (authScreen) authScreen.classList.remove('hidden');
+            if (appScreen) appScreen.classList.add('hidden');
+          }
+        });
+      } else {
+        alert("Firebase scripts failed to load. Please check your internet connection.");
+      }
+    } catch (e) {
+      alert("Config Error: " + e.message);
+    }
+
+    function toggleAuthMode(e) {
+      if (e) e.preventDefault();
+      isSignUpMode = !isSignUpMode;
+      document.getElementById('authSubmitBtn').innerText = isSignUpMode ? "Sign Up" : "Sign In";
+      document.getElementById('authToggleText').innerText = isSignUpMode ? "Already have an account?" : "Don't have an account?";
+      document.getElementById('authToggleBtn').innerText = isSignUpMode ? "Sign In" : "Sign Up";
+      const err = document.getElementById('authError');
+      if (err) err.classList.add('hidden');
+    }
+
+    async function handleAuthSubmit(e) {
+      if (e) e.preventDefault();
+      const email = document.getElementById('authEmail').value.trim();
+      const pass = document.getElementById('authPassword').value;
+      const errorEl = document.getElementById('authError');
+      const submitBtn = document.getElementById('authSubmitBtn');
+
+      if (!email || !pass) return;
+      if (pass.length < 6) {
+        alert("Password must be at least 6 characters.");
+        return;
+      }
+      if (!auth) {
+        alert("Firebase is not connected. Make sure API keys are filled in index.html.");
+        return;
+      }
+
+      submitBtn.disabled = true;
+      submitBtn.innerText = isSignUpMode ? "Creating Account..." : "Signing In...";
+
+      try {
+        if (isSignUpMode) {
+          await auth.createUserWithEmailAndPassword(email, pass);
+        } else {
+          await auth.signInWithEmailAndPassword(email, pass);
+        }
+      } catch (err) {
+        alert(err.message);
+        if (errorEl) {
+          errorEl.innerText = err.message;
+          errorEl.classList.remove('hidden');
+        }
+      } finally {
+        submitBtn.disabled = false;
+        submitBtn.innerText = isSignUpMode ? "Sign Up" : "Sign In";
+      }
+    }
+
+    function logoutUser() { if (auth) auth.signOut(); }
+
+    async function loadUserData() {
+      if (!currentUser || !db) return;
+      try {
+        const doc = await db.collection('users').doc(currentUser.uid).get();
+        if (doc.exists) {
+          garage = doc.data();
+        } else {
+          garage = { activeVehicleId: null, vehicles: [], fuelLogs: [], serviceLogs: [], parts: [] };
+          await saveUserData();
+        }
+        renderAll();
+      } catch (err) {
+        alert("Database load error: " + err.message);
+      }
+    }
+
+    async function saveUserData() {
+      if (!currentUser || !db) return;
+      try {
+        await db.collection('users').doc(currentUser.uid).set(garage);
+        renderAll();
+      } catch (err) {
+        alert("Database save error: " + err.message);
+      }
+    }
+
+    function getActiveVehicle() {
+      if (!garage.vehicles || garage.vehicles.length === 0) return null;
+      return garage.vehicles.find(v => v.id === garage.activeVehicleId) || garage.vehicles[0];
+    }
+
+    function showTab(tabId, el) {
+      document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      document.getElementById(tabId).classList.add('active');
+      el.classList.add('active');
+    }
+
+    function openModal(id) {
+      document.getElementById(id).classList.add('active');
+      const today = new Date().toISOString().split('T')[0];
+      if (document.getElementById('fDate')) document.getElementById('fDate').value = today;
+      if (document.getElementById('sDate')) document.getElementById('sDate').value = today;
+    }
+
+    function closeModal(id) { document.getElementById(id).classList.remove('active'); }
+
+    function switchVehicle(id) { garage.activeVehicleId = id; saveUserData(); }
+
+    async function addVehicle(e) {
+      e.preventDefault();
+      const newV = {
+        id: 'v_' + Date.now(),
+        name: document.getElementById('vName').value,
+        regNumber: document.getElementById('vReg').value,
+        serviceIntervalKm: 2500,
+        serviceIntervalMonths: 3,
+        createdAt: new Date().toISOString()
+      };
+      const initOdo = parseFloat(document.getElementById('vOdo').value);
+      if (!garage.vehicles) garage.vehicles = [];
+      if (!garage.fuelLogs) garage.fuelLogs = [];
+      if (!garage.serviceLogs) garage.serviceLogs = [];
+      if (!garage.parts) garage.parts = [];
+
+      garage.vehicles.push(newV);
+      garage.activeVehicleId = newV.id;
+      garage.fuelLogs.push({ id: 'f_' + Date.now(), vehicleId: newV.id, date: new Date().toISOString().split('T')[0], odo: initOdo, liters: 0, rate: 0, brand: "Baseline Odometer" });
+      closeModal('vehicleModal');
+      await saveUserData();
+    }
+
+    async function addFuelLog(e) {
+      e.preventDefault();
+      const v = getActiveVehicle();
+      if (!v) return;
+      garage.fuelLogs.push({
+        id: 'f_' + Date.now(),
+        vehicleId: v.id,
+        date: document.getElementById('fDate').value,
+        odo: parseFloat(document.getElementById('fOdo').value),
+        liters: parseFloat(document.getElementById('fLiters').value),
+        rate: parseFloat(document.getElementById('fRate').value),
+        brand: document.getElementById('fBrand').value || 'Standard'
+      });
+      closeModal('fuelModal');
+      await saveUserData();
+    }
+
+    async function addServiceLog(e) {
+      e.preventDefault();
+      const v = getActiveVehicle();
+      if (!v) return;
+      garage.serviceLogs.push({
+        id: 's_' + Date.now(),
+        vehicleId: v.id,
+        date: document.getElementById('sDate').value,
+        odo: parseFloat(document.getElementById('sOdo').value),
+        title: document.getElementById('sTitle').value,
+        garage: document.getElementById('sGarage').value,
+        mechName: document.getElementById('sMechName').value,
+        mechPhone: document.getElementById('sMechPhone').value,
+        billNumber: document.getElementById('sBill').value,
+        laborCost: parseFloat(document.getElementById('sLabor').value) || 0,
+        partsCost: parseFloat(document.getElementById('sPartsCost').value) || 0
+      });
+      closeModal('serviceModal');
+      await saveUserData();
+    }
+
+    async function addTrackedPart(e) {
+      e.preventDefault();
+      const v = getActiveVehicle();
+      if (!v) return;
+      garage.parts.push({
+        id: 'p_' + Date.now(),
+        vehicleId: v.id,
+        name: document.getElementById('pName').value,
+        installedOdo: parseFloat(document.getElementById('pInstalledOdo').value),
+        lifeKm: parseFloat(document.getElementById('pLifeKm').value)
+      });
+      closeModal('partModal');
+      await saveUserData();
+    }
+
+    async function saveServiceConfig(e) {
+      e.preventDefault();
+      const v = getActiveVehicle();
+      if (!v) return;
+      v.serviceIntervalKm = parseFloat(document.getElementById('cfgIntervalKm').value) || null;
+      v.serviceIntervalMonths = parseFloat(document.getElementById('cfgIntervalMonths').value) || null;
+      await saveUserData();
+    }
+
+    async function deleteItem(collection, id) {
+      garage[collection] = garage[collection].filter(i => i.id !== id);
+      await saveUserData();
+    }
+
+    function renderAll() {
+      const v = getActiveVehicle();
+      const sel = document.getElementById('vehicleSelector');
+      if (!v) {
+        if (sel) sel.innerHTML = '<option>No Bikes Added</option>';
+        document.getElementById('statOdo').innerText = '--';
+        document.getElementById('statFE').innerText = '--';
+        document.getElementById('statCostPerKm').innerText = '--';
+        document.getElementById('statServiceDue').innerText = '--';
+        document.getElementById('fuelTableBody').innerHTML = '<tr><td colspan="11" style="text-align:center;">Click "+ Add Bike" above to start!</td></tr>';
+        document.getElementById('serviceTableBody').innerHTML = '';
+        document.getElementById('partsList').innerHTML = '<p style="color:var(--text-muted)">Add a bike to begin.</p>';
+        return;
+      }
+
+      if (sel) sel.innerHTML = garage.vehicles.map(item => `<option value="${item.id}" ${item.id === v.id ? 'selected' : ''}>${item.name}</option>`).join('');
+      if (document.getElementById('cfgIntervalKm')) {
+        document.getElementById('cfgIntervalKm').value = v.serviceIntervalKm || '';
+        document.getElementById('cfgIntervalMonths').value = v.serviceIntervalMonths || '';
+      }
+
+      const fuels = (garage.fuelLogs || []).filter(f => f.vehicleId === v.id).sort((a,b) => a.odo - b.odo);
+      const services = (garage.serviceLogs || []).filter(s => s.vehicleId === v.id).sort((a,b) => a.odo - b.odo);
+      const parts = (garage.parts || []).filter(p => p.vehicleId === v.id);
+
+      const latestFuelOdo = fuels.length ? fuels[fuels.length - 1].odo : 0;
+      const latestServiceOdo = services.length ? services[services.length - 1].odo : 0;
+      const currentOdo = Math.max(latestFuelOdo, latestServiceOdo);
+      document.getElementById('statOdo').innerText = currentOdo ? `${currentOdo.toLocaleString()} km` : '--';
+
+      let lastFE = '--', totalSpent = 0, totalDistance = 0;
+      const fuelTbody = document.getElementById('fuelTableBody');
+      fuelTbody.innerHTML = '';
+      fuels.forEach((entry, idx) => {
+        let tripDist = idx > 0 ? entry.odo - fuels[idx - 1].odo : 0;
+        let cost = entry.liters * entry.rate;
+        let fe = (tripDist > 0 && entry.liters > 0) ? (tripDist / entry.liters).toFixed(2) : '--';
+        let costPerKm = (tripDist > 0 && cost > 0) ? `₹${(cost / tripDist).toFixed(2)}` : '--';
+        let kmPerRe = (tripDist > 0 && cost > 0) ? `${(tripDist / cost).toFixed(3)} km` : '--';
+        if (fe !== '--') { lastFE = fe; totalSpent += cost; totalDistance += tripDist; }
+        fuelTbody.innerHTML += `<tr><td>${entry.date}</td><td><strong>${entry.odo}</strong></td><td>${tripDist > 0 ? tripDist + ' km' : '-'}</td><td>${entry.liters}</td><td>₹${entry.rate}</td><td>₹${cost.toFixed(2)}</td><td>${entry.brand}</td><td><strong class="text-green">${fe}</strong></td><td>${costPerKm}</td><td>${kmPerRe}</td><td><button class="btn btn-danger" onclick="deleteItem('fuelLogs', '${entry.id}')">✕</button></td></tr>`;
+      });
+
+      document.getElementById('statFE').innerText = lastFE !== '--' ? `${lastFE} km/L` : '--';
+      document.getElementById('statCostPerKm').innerText = (totalDistance > 0 && totalSpent > 0) ? `₹${(totalSpent / totalDistance).toFixed(2)} /km` : '₹-- /km';
+
+      const sTbody = document.getElementById('serviceTableBody');
+      sTbody.innerHTML = '';
+      services.forEach(s => {
+        const total = (s.laborCost || 0) + (s.partsCost || 0);
+        sTbody.innerHTML += `<tr><td>${s.date}</td><td><strong>${s.odo} km</strong></td><td><strong>${s.title}</strong></td><td>${s.garage || '-'}</td><td>${s.mechName || '-'}</td><td>${s.mechPhone ? `<a class="phone-link" href="tel:${s.mechPhone}">📞 ${s.mechPhone}</a>` : '-'}</td><td>${s.billNumber || '-'}</td><td>₹${(s.laborCost || 0).toFixed(2)}</td><td>₹${(s.partsCost || 0).toFixed(2)}</td><td><strong>₹${total.toFixed(2)}</strong></td><td><button class="btn btn-danger" onclick="deleteItem('serviceLogs', '${s.id}')">✕</button></td></tr>`;
+      });
+
+      const pList = document.getElementById('partsList');
+      pList.innerHTML = '';
+      parts.forEach(p => {
+        const used = Math.max(0, currentOdo - p.installedOdo);
+        const pct = Math.min(100, Math.round((used / p.lifeKm) * 100));
+        let color = 'var(--green)';
+        if (pct > 70) color = 'var(--yellow)';
+        if (pct >= 95) color = 'var(--red)';
+        pList.innerHTML += `<div class="part-card"><h4>${p.name}</h4><p style="color:var(--text-muted); font-size:0.85rem; margin-top:4px;">Installed at: ${p.installedOdo} km | Lifespan: ${p.lifeKm} km</p><div class="progress-bar-bg"><div class="progress-bar-fill" style="width:${pct}%; background-color:${color};"></div></div><div style="display:flex; justify-content:space-between; font-size:0.85rem;"><span>Used: ${used} km (${pct}%)</span><span>Remaining: ${Math.max(0, p.lifeKm - used)} km</span></div></div>`;
+      });
+
+      evaluateServiceReminder(v, currentOdo, services);
+    }
+
+    function evaluateServiceReminder(v, currentOdo, services) {
+      const alertEl = document.getElementById('serviceAlertBanner');
+      const statServiceDue = document.getElementById('statServiceDue');
+      let lastServiceOdo = services.length ? services[services.length - 1].odo : (currentOdo || 0);
+      let lastServiceDate = services.length ? new Date(services[services.length - 1].date) : new Date(v.createdAt);
+      let kmRemaining = v.serviceIntervalKm ? (lastServiceOdo + v.serviceIntervalKm) - currentOdo : null;
+      let daysRemaining = null;
+
+      if (v.serviceIntervalMonths) {
+        let tDate = new Date(lastServiceDate);
+        tDate.setMonth(tDate.getMonth() + v.serviceIntervalMonths);
+        daysRemaining = Math.ceil((tDate - new Date()) / (1000 * 60 * 60 * 24));
+      }
+
+      if (kmRemaining === null && daysRemaining === null) {
+        statServiceDue.innerText = "No Interval Set";
+        alertEl.classList.add('hidden');
+        return;
+      }
+
+      let txt = [];
+      if (kmRemaining !== null) txt.push(`${kmRemaining} km left`);
+      if (daysRemaining !== null) txt.push(`${daysRemaining} days left`);
+      statServiceDue.innerText = txt.join(' or ');
+
+      if ((kmRemaining !== null && kmRemaining <= 0) || (daysRemaining !== null && daysRemaining <= 0)) {
+        alertEl.className = 'alert-banner danger';
+        alertEl.innerText = `🚨 Service Overdue! Passed threshold (${kmRemaining <= 0 ? 'KM exceeded' : 'Time exceeded'}).`;
+      } else if ((kmRemaining !== null && kmRemaining <= 200) || (daysRemaining !== null && daysRemaining <= 15)) {
+        alertEl.className = 'alert-banner warning';
+        alertEl.innerText = `⚠️ Service Due Soon: ${txt.join(' | ')}`;
+      } else {
+        alertEl.classList.add('hidden');
+      }
+    }
+  </script>
 </body>
 </html>
