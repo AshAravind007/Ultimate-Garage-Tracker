@@ -1,321 +1,317 @@
-:root {
-  --bg-dark: #0f172a;
-  --card-bg: #1e293b;
-  --border: #334155;
-  --text-main: #f8fafc;
-  --text-muted: #94a3b8;
-  --primary: #3b82f6;
-  --primary-hover: #2563eb;
-  --green: #10b981;
-  --yellow: #f59e0b;
-  --red: #ef4444;
-}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Ultimate Garage Tracker</title>
+  <link rel="stylesheet" href="style.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+</head>
+<body>
 
-* {
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-}
+  <div id="authScreen" class="auth-wrapper">
+    <div class="auth-card">
+      <div class="brand-center">
+        <span class="logo-icon" style="font-size: 2.5rem;">🏍️</span>
+        <h2>Ultimate Garage Tracker</h2>
+        <span class="version-badge">v1.2.0</span>
+        <p style="color: var(--text-muted); font-size: 0.9rem; margin-top: 6px;">
+          Multi-Vehicle Fuel & Service Manager
+        </p>
+      </div>
 
-body {
-  background-color: var(--bg-dark);
-  color: var(--text-main);
-  min-height: 100vh;
-  padding-bottom: 50px;
-}
+      <div id="authError" class="alert-banner danger hidden" style="margin-top:16px;"></div>
 
-/* NAVBAR & HEADER */
-.navbar {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 16px 24px;
-  background-color: var(--card-bg);
-  border-bottom: 1px solid var(--border);
-}
+      <form id="authForm">
+        <div class="form-group" style="margin-top: 16px;">
+          <label>Email Address</label>
+          <input type="email" id="authEmail" required placeholder="you@example.com" autocomplete="email" />
+        </div>
+        <div class="form-group">
+          <label>Password</label>
+          <input type="password" id="authPassword" required placeholder="••••••••" minlength="6" autocomplete="current-password" />
+        </div>
+        <button type="submit" id="authSubmitBtn" class="btn btn-primary full-width">Sign In</button>
+      </form>
 
-.brand {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
+      <div style="text-align:center; margin-top: 16px; font-size: 0.88rem;">
+        <span id="authToggleText">Don't have an account?</span>
+        <button type="button" id="authToggleBtn" class="link-btn">Sign Up</button>
+      </div>
+    </div>
+  </div>
 
-.brand h1 {
-  font-size: 1.25rem;
-  font-weight: 700;
-}
+  <div id="appScreen" class="hidden">
+    <header class="navbar">
+      <div class="brand">
+        <span class="logo-icon">🏍️</span>
+        <h1>Ultimate Garage Tracker</h1>
+        <span class="version-badge">v1.2.0</span>
+      </div>
+      <div class="vehicle-controls">
+        <select id="vehicleSelector" onchange="switchVehicle(this.value)"></select>
+        <button class="btn btn-primary" onclick="openModal('vehicleModal')">+ Add Bike</button>
+        <button class="btn btn-secondary" onclick="logoutUser()">Logout</button>
+      </div>
+    </header>
 
-.version-badge {
-  background: rgba(59, 130, 246, 0.15);
-  color: var(--primary);
-  border: 1px solid var(--primary);
-  font-size: 0.72rem;
-  padding: 2px 6px;
-  border-radius: 4px;
-  font-weight: 600;
-}
+    <main class="container">
+      <section class="stats-grid">
+        <div class="stat-card">
+          <span class="stat-label">Current Odometer</span>
+          <span class="stat-value" id="statOdo">-- km</span>
+        </div>
+        <div class="stat-card">
+          <span class="stat-label">Last Fuel Economy</span>
+          <span class="stat-value text-green" id="statFE">-- km/L</span>
+        </div>
+        <div class="stat-card">
+          <span class="stat-label">Avg Cost / KM</span>
+          <span class="stat-value text-blue" id="statCostPerKm">₹-- /km</span>
+        </div>
+        <div class="stat-card">
+          <span class="stat-label">Next Service Due</span>
+          <span class="stat-value" id="statServiceDue">--</span>
+        </div>
+      </section>
 
-.vehicle-controls {
-  display: flex;
-  gap: 10px;
-}
+      <div id="serviceAlertBanner" class="alert-banner hidden"></div>
 
-select, input {
-  background: var(--bg-dark);
-  border: 1px solid var(--border);
-  color: var(--text-main);
-  padding: 8px 12px;
-  border-radius: 6px;
-  font-size: 0.9rem;
-}
+      <nav class="tab-nav">
+        <button class="tab-btn active" onclick="showTab('fuelTab', this)">⛽ Fuel Logs</button>
+        <button class="tab-btn" onclick="showTab('serviceTab', this)">🛠️ Service & Mechanics</button>
+        <button class="tab-btn" onclick="showTab('partsTab', this)">⚙️ Spare Parts Wear</button>
+        <button class="tab-btn" onclick="showTab('settingsTab', this)">⚙️ Bike Config</button>
+      </nav>
 
-.container {
-  max-width: 1200px;
-  margin: 24px auto;
-  padding: 0 16px;
-}
+      <section id="fuelTab" class="tab-content active">
+        <div class="section-header">
+          <h2>Fueling Records</h2>
+          <button class="btn btn-primary" onclick="openModal('fuelModal')">+ Log Fuel Fill</button>
+        </div>
+        <div class="table-container">
+          <table>
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Odometer</th>
+                <th>Trip Dist</th>
+                <th>Fuel (L)</th>
+                <th>Rate (₹/L)</th>
+                <th>Total Cost</th>
+                <th>Brand</th>
+                <th>FE (km/L)</th>
+                <th>Cost/km</th>
+                <th>km/₹</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody id="fuelTableBody"></tbody>
+          </table>
+        </div>
+      </section>
 
-/* AUTH WRAPPER & CARD */
-.auth-wrapper {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  min-height: 100vh;
-  padding: 16px;
-}
+      <section id="serviceTab" class="tab-content">
+        <div class="section-header">
+          <h2>Service History & Workshops</h2>
+          <button class="btn btn-primary" onclick="openModal('serviceModal')">+ Log Service</button>
+        </div>
+        <div class="table-container">
+          <table>
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Odometer</th>
+                <th>Service Title</th>
+                <th>Workshop</th>
+                <th>Mechanic</th>
+                <th>Bill #</th>
+                <th>Labor</th>
+                <th>Parts</th>
+                <th>Total</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody id="serviceTableBody"></tbody>
+          </table>
+        </div>
+      </section>
 
-.auth-card {
-  background: var(--card-bg);
-  border: 1px solid var(--border);
-  padding: 32px;
-  border-radius: 12px;
-  width: 100%;
-  max-width: 400px;
-}
+      <section id="partsTab" class="tab-content">
+        <div class="section-header">
+          <h2>Component Wear Tracker</h2>
+          <button class="btn btn-primary" onclick="openModal('partModal')">+ Track New Part</button>
+        </div>
+        <div class="parts-grid" id="partsList"></div>
+      </section>
 
-.brand-center {
-  text-align: center;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 6px;
-}
+      <section id="settingsTab" class="tab-content">
+        <div class="settings-card">
+          <h3>Service Reminder Settings</h3>
+          <form id="serviceConfigForm" onsubmit="saveServiceConfig(event)">
+            <div class="form-row">
+              <div class="form-group">
+                <label>Service Interval (in Kilometers):</label>
+                <input type="number" id="cfgIntervalKm" placeholder="e.g. 2500" />
+              </div>
+              <div class="form-group">
+                <label>Service Interval (in Months):</label>
+                <input type="number" id="cfgIntervalMonths" placeholder="e.g. 3" />
+              </div>
+            </div>
+            <button type="submit" class="btn btn-success">Update Service Triggers</button>
+          </form>
+        </div>
+      </section>
+    </main>
+  </div>
 
-.link-btn {
-  background: none;
-  border: none;
-  color: var(--primary);
-  font-weight: 600;
-  cursor: pointer;
-  text-decoration: underline;
-  font-size: 0.88rem;
-}
+  <div id="vehicleModal" class="modal">
+    <div class="modal-dialog">
+      <div class="modal-header">
+        <h3>Add New Bike</h3>
+        <span class="close-btn" onclick="closeModal('vehicleModal')">&times;</span>
+      </div>
+      <form onsubmit="addVehicle(event)">
+        <div class="form-group">
+          <label>Bike Name / Model *</label>
+          <input type="text" id="vName" required placeholder="e.g. TVS NTorq 125 (2018)" />
+        </div>
+        <div class="form-group">
+          <label>Registration Number</label>
+          <input type="text" id="vReg" placeholder="e.g. KA-04-XX-0000" />
+        </div>
+        <div class="form-group">
+          <label>Initial Odometer (km) *</label>
+          <input type="number" id="vOdo" required placeholder="e.g. 52635" />
+        </div>
+        <button type="submit" class="btn btn-primary full-width">Add Bike</button>
+      </form>
+    </div>
+  </div>
 
-/* STATS CARDS */
-.stats-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: 16px;
-  margin-bottom: 24px;
-}
+  <div id="fuelModal" class="modal">
+    <div class="modal-dialog">
+      <div class="modal-header">
+        <h3>Log Fuel Refill</h3>
+        <span class="close-btn" onclick="closeModal('fuelModal')">&times;</span>
+      </div>
+      <form onsubmit="addFuelLog(event)">
+        <div class="form-group">
+          <label>Date *</label>
+          <input type="date" id="fDate" required />
+        </div>
+        <div class="form-group">
+          <label>Odometer Reading (km) *</label>
+          <input type="number" step="any" id="fOdo" required placeholder="e.g. 53113" />
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Fuel Volume (Liters) *</label>
+            <input type="number" step="0.01" id="fLiters" required placeholder="4.11" />
+          </div>
+          <div class="form-group">
+            <label>Rate / Liter (₹) *</label>
+            <input type="number" step="0.01" id="fRate" required placeholder="110.93" />
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Fuel Brand / Bunk Details</label>
+          <input type="text" id="fBrand" placeholder="e.g. HP Normal, Shell V-Power" />
+        </div>
+        <button type="submit" class="btn btn-primary full-width">Save Fuel Record</button>
+      </form>
+    </div>
+  </div>
 
-.stat-card {
-  background: var(--card-bg);
-  border: 1px solid var(--border);
-  padding: 18px;
-  border-radius: 8px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
+  <div id="serviceModal" class="modal">
+    <div class="modal-dialog">
+      <div class="modal-header">
+        <h3>Log Maintenance & Service</h3>
+        <span class="close-btn" onclick="closeModal('serviceModal')">&times;</span>
+      </div>
+      <form onsubmit="addServiceLog(event)">
+        <div class="form-row">
+          <div class="form-group">
+            <label>Date *</label>
+            <input type="date" id="sDate" required />
+          </div>
+          <div class="form-group">
+            <label>Odometer (km) *</label>
+            <input type="number" id="sOdo" required placeholder="e.g. 52000" />
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Service Summary *</label>
+          <input type="text" id="sTitle" required placeholder="e.g. Periodic Service, Oil Change" />
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Workshop / Garage Name</label>
+            <input type="text" id="sGarage" placeholder="Speed Motors, KR Puram" />
+          </div>
+          <div class="form-group">
+            <label>Mechanic Name</label>
+            <input type="text" id="sMechName" placeholder="Ramesh" />
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Mechanic Phone</label>
+            <input type="tel" id="sMechPhone" placeholder="9876543210" />
+          </div>
+          <div class="form-group">
+            <label>Bill / Invoice #</label>
+            <input type="text" id="sBill" placeholder="INV-1029" />
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Labor Cost (₹)</label>
+            <input type="number" step="0.01" id="sLabor" value="0" />
+          </div>
+          <div class="form-group">
+            <label>Parts Cost (₹)</label>
+            <input type="number" step="0.01" id="sPartsCost" value="0" />
+          </div>
+        </div>
+        <button type="submit" class="btn btn-primary full-width">Save Service Record</button>
+      </form>
+    </div>
+  </div>
 
-.stat-label {
-  font-size: 0.85rem;
-  color: var(--text-muted);
-}
+  <div id="partModal" class="modal">
+    <div class="modal-dialog">
+      <div class="modal-header">
+        <h3>Track Spare Part Lifespan</h3>
+        <span class="close-btn" onclick="closeModal('partModal')">&times;</span>
+      </div>
+      <form onsubmit="addTrackedPart(event)">
+        <div class="form-group">
+          <label>Part Name *</label>
+          <input type="text" id="pName" required placeholder="e.g. Motul 10W-30 Oil, CVT Drive Belt" />
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Installed at Odo (km) *</label>
+            <input type="number" id="pInstalledOdo" required placeholder="e.g. 52635" />
+          </div>
+          <div class="form-group">
+            <label>Lifespan (km) *</label>
+            <input type="number" id="pLifeKm" required placeholder="e.g. 3000" />
+          </div>
+        </div>
+        <button type="submit" class="btn btn-primary full-width">Start Tracking</button>
+      </form>
+    </div>
+  </div>
 
-.stat-value {
-  font-size: 1.4rem;
-  font-weight: 700;
-}
-
-.text-green { color: var(--green); }
-.text-blue { color: var(--primary); }
-.text-yellow { color: var(--yellow); }
-.text-red { color: var(--red); }
-
-/* ALERT BANNER */
-.alert-banner {
-  padding: 12px 18px;
-  border-radius: 8px;
-  margin-bottom: 24px;
-  font-weight: 600;
-}
-.alert-banner.warning { background: rgba(245, 158, 11, 0.2); border: 1px solid var(--yellow); color: var(--yellow); }
-.alert-banner.danger { background: rgba(239, 68, 68, 0.2); border: 1px solid var(--red); color: var(--red); }
-.hidden { display: none !important; }
-
-/* TABS */
-.tab-nav {
-  display: flex;
-  gap: 10px;
-  border-bottom: 1px solid var(--border);
-  margin-bottom: 24px;
-  overflow-x: auto;
-}
-
-.tab-btn {
-  background: none;
-  border: none;
-  color: var(--text-muted);
-  padding: 12px 16px;
-  font-weight: 600;
-  cursor: pointer;
-  border-bottom: 2px solid transparent;
-  white-space: nowrap;
-}
-
-.tab-btn.active {
-  color: var(--primary);
-  border-color: var(--primary);
-}
-
-.tab-content { display: none; }
-.tab-content.active { display: block; }
-
-.section-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 16px;
-}
-
-/* BUTTONS */
-.btn {
-  padding: 8px 16px;
-  border-radius: 6px;
-  border: none;
-  font-weight: 600;
-  cursor: pointer;
-  transition: opacity 0.2s ease;
-}
-.btn:hover { opacity: 0.9; }
-.btn-primary { background: var(--primary); color: white; }
-.btn-secondary { background: var(--border); color: white; }
-.btn-success { background: var(--green); color: white; }
-.btn-danger { background: var(--red); color: white; padding: 4px 8px; font-size: 0.8rem; }
-.full-width { width: 100%; margin-top: 10px; padding: 10px; }
-
-/* DATA TABLES */
-.table-container {
-  overflow-x: auto;
-  background: var(--card-bg);
-  border-radius: 8px;
-  border: 1px solid var(--border);
-}
-
-table {
-  width: 100%;
-  border-collapse: collapse;
-  text-align: left;
-}
-
-th, td {
-  padding: 12px 16px;
-  border-bottom: 1px solid var(--border);
-  font-size: 0.88rem;
-}
-
-th {
-  background-color: rgba(255, 255, 255, 0.03);
-  color: var(--text-muted);
-  font-weight: 600;
-}
-
-/* SPARE PARTS */
-.parts-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-  gap: 16px;
-}
-
-.part-card {
-  background: var(--card-bg);
-  border: 1px solid var(--border);
-  padding: 18px;
-  border-radius: 8px;
-}
-
-.progress-bar-bg {
-  background: var(--bg-dark);
-  height: 8px;
-  border-radius: 4px;
-  overflow: hidden;
-  margin: 12px 0;
-}
-
-.progress-bar-fill { height: 100%; }
-
-/* MODALS */
-.modal {
-  display: none;
-  position: fixed;
-  inset: 0;
-  background: rgba(0,0,0,0.7);
-  justify-content: center;
-  align-items: center;
-  padding: 16px;
-  z-index: 999;
-}
-
-.modal.active { display: flex; }
-
-.modal-dialog {
-  background: var(--card-bg);
-  border: 1px solid var(--border);
-  padding: 24px;
-  border-radius: 8px;
-  width: 100%;
-  max-width: 500px;
-}
-
-.modal-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 16px;
-}
-
-.close-btn {
-  font-size: 1.5rem;
-  cursor: pointer;
-  color: var(--text-muted);
-}
-
-.form-group {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  margin-bottom: 14px;
-}
-
-.form-row {
-  display: flex;
-  gap: 12px;
-}
-
-.form-row .form-group { flex: 1; }
-
-.settings-card {
-  background: var(--card-bg);
-  border: 1px solid var(--border);
-  padding: 20px;
-  border-radius: 8px;
-}
-
-.phone-link {
-  color: var(--primary);
-  text-decoration: none;
-  font-weight: 600;
-}
+  <script src="app.js"></script>
+</body>
+</html>
