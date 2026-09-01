@@ -16,6 +16,19 @@ const firebaseConfig = {
   measurementId: "G-M9SQQB649N"
 };
 
+// ==========================================
+// 1. YOUR FIREBASE CONFIG
+// ==========================================
+const firebaseConfig = {
+  apiKey: "YOUR_ACTUAL_API_KEY",
+  authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
+  projectId: "YOUR_PROJECT_ID",
+  storageBucket: "YOUR_PROJECT_ID.appspot.com",
+  messagingSenderId: "YOUR_SENDER_ID",
+  appId: "YOUR_APP_ID"
+};
+
+// Global State
 let auth, db;
 let currentUser = null;
 let garage = {
@@ -27,24 +40,22 @@ let garage = {
 };
 let isSignUpMode = false;
 
-// Safe Initialization
+// 1. Safe Initialization
 try {
   if (typeof firebase === 'undefined') {
-    throw new Error("Firebase SDK failed to load. Check your internet or index.html scripts.");
+    console.error("Firebase SDK script tag is missing in index.html");
+  } else {
+    if (!firebase.apps.length) {
+      firebase.initializeApp(firebaseConfig);
+    }
+    auth = firebase.auth();
+    db = firebase.firestore();
   }
-  if (!firebase.apps.length) {
-    firebase.initializeApp(firebaseConfig);
-  }
-  auth = firebase.auth();
-  db = firebase.firestore();
 } catch (err) {
   console.error("Firebase Init Error:", err);
-  alert("Firebase Initialization Error: " + err.message);
 }
 
-// ------------------------------------------
-// AUTHENTICATION CONTROLLER
-// ------------------------------------------
+// 2. Auth State Listener
 if (auth) {
   auth.onAuthStateChanged(async (user) => {
     const authScreen = document.getElementById('authScreen');
@@ -63,21 +74,55 @@ if (auth) {
   });
 }
 
+// 3. Attach DOM Listeners on Page Ready
+document.addEventListener('DOMContentLoaded', () => {
+  const authForm = document.getElementById('authForm');
+  const authToggleBtn = document.getElementById('authToggleBtn');
+
+  if (authToggleBtn) {
+    authToggleBtn.addEventListener('click', toggleAuthMode);
+  }
+
+  if (authForm) {
+    authForm.addEventListener('submit', handleAuthSubmit);
+  }
+});
+
 function toggleAuthMode(e) {
   if (e) e.preventDefault();
   isSignUpMode = !isSignUpMode;
-  document.getElementById('authSubmitBtn').innerText = isSignUpMode ? "Sign Up" : "Sign In";
-  document.getElementById('authToggleText').innerText = isSignUpMode ? "Already have an account?" : "Don't have an account?";
-  document.getElementById('authToggleLink').innerText = isSignUpMode ? "Sign In" : "Sign Up";
-  document.getElementById('authError').classList.add('hidden');
+
+  const submitBtn = document.getElementById('authSubmitBtn');
+  const toggleText = document.getElementById('authToggleText');
+  const toggleBtn = document.getElementById('authToggleBtn');
+  const errorEl = document.getElementById('authError');
+
+  if (submitBtn) submitBtn.innerText = isSignUpMode ? "Sign Up" : "Sign In";
+  if (toggleText) toggleText.innerText = isSignUpMode ? "Already have an account?" : "Don't have an account?";
+  if (toggleBtn) toggleBtn.innerText = isSignUpMode ? "Sign In" : "Sign Up";
+  if (errorEl) errorEl.classList.add('hidden');
 }
 
-async function handleAuth(e) {
+async function handleAuthSubmit(e) {
   e.preventDefault();
-  const email = document.getElementById('authEmail').value;
+  const email = document.getElementById('authEmail').value.trim();
   const pass = document.getElementById('authPassword').value;
   const errorEl = document.getElementById('authError');
-  errorEl.classList.add('hidden');
+  const submitBtn = document.getElementById('authSubmitBtn');
+
+  if (!email || !pass) return;
+
+  if (pass.length < 6) {
+    if (errorEl) {
+      errorEl.innerText = "Password must be at least 6 characters long.";
+      errorEl.classList.remove('hidden');
+    }
+    return;
+  }
+
+  if (errorEl) errorEl.classList.add('hidden');
+  submitBtn.disabled = true;
+  submitBtn.innerText = isSignUpMode ? "Creating Account..." : "Signing In...";
 
   try {
     if (isSignUpMode) {
@@ -86,8 +131,16 @@ async function handleAuth(e) {
       await auth.signInWithEmailAndPassword(email, pass);
     }
   } catch (err) {
-    errorEl.innerText = err.message;
-    errorEl.classList.remove('hidden');
+    console.error("Auth Error:", err);
+    if (errorEl) {
+      errorEl.innerText = err.message;
+      errorEl.classList.remove('hidden');
+    } else {
+      alert(err.message);
+    }
+  } finally {
+    submitBtn.disabled = false;
+    submitBtn.innerText = isSignUpMode ? "Sign Up" : "Sign In";
   }
 }
 
@@ -96,7 +149,7 @@ function logoutUser() {
 }
 
 // ------------------------------------------
-// DATABASE SYNC
+// DATABASE LOAD & SAVE
 // ------------------------------------------
 async function loadUserData() {
   if (!currentUser || !db) return;
@@ -119,7 +172,6 @@ async function loadUserData() {
     renderAll();
   } catch (err) {
     console.error("Firestore Load Error:", err);
-    alert("Database access error. Please check your Firestore rules.");
   }
 }
 
@@ -130,7 +182,6 @@ async function saveUserData() {
     renderAll();
   } catch (err) {
     console.error("Firestore Save Error:", err);
-    alert("Could not save to cloud: " + err.message);
   }
 }
 
@@ -140,7 +191,7 @@ function getActiveVehicle() {
 }
 
 // ------------------------------------------
-// UI NAVIGATION & MODALS
+// UI ACTIONS & CONTROLLERS
 // ------------------------------------------
 function showTab(tabId, element) {
   document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
@@ -178,7 +229,7 @@ async function addVehicle(e) {
     createdAt: new Date().toISOString()
   };
   const initOdo = parseFloat(document.getElementById('vOdo').value);
-  
+
   if (!garage.vehicles) garage.vehicles = [];
   if (!garage.fuelLogs) garage.fuelLogs = [];
   if (!garage.serviceLogs) garage.serviceLogs = [];
@@ -194,7 +245,7 @@ async function addVehicle(e) {
     odo: initOdo,
     liters: 0,
     rate: 0,
-    brand: "Baseline Odometer"
+    brand: "Initial Odo Baseline"
   });
 
   closeModal('vehicleModal');
@@ -269,7 +320,7 @@ async function deleteItem(collection, id) {
 }
 
 // ------------------------------------------
-// RENDER ENGINE
+// RENDER & FORMULAS ENGINE
 // ------------------------------------------
 function renderAll() {
   const v = getActiveVehicle();
